@@ -85,10 +85,9 @@ function applyFilters() {
     if (apt.rentability_pct < rentMin) return false;
 
     // Gastos comunes
-    if (apt.gastos_comunes_usd !== null && apt.gastos_comunes_usd !== undefined) {
-      if (apt.gastos_comunes_usd > ggccMax) return false;
+    if (apt.gastos_comunes_uyu !== null && apt.gastos_comunes_uyu !== undefined) {
+      if (apt.gastos_comunes_uyu > ggccMax) return false;
     } else {
-      // Sin dato: respetar toggle
       if (!includeGgccUnknown) return false;
     }
 
@@ -165,8 +164,8 @@ function cardHTML(apt) {
     : "";
   const placeholder = `<div class="card-img-placeholder" ${apt.thumbnail ? 'style="display:none"' : ""}>&#127968;</div>`;
 
-  const ggccStr = apt.gastos_comunes_usd !== null && apt.gastos_comunes_usd !== undefined
-    ? `<strong>U$S ${apt.gastos_comunes_usd}/mes</strong>`
+  const ggccStr = apt.gastos_comunes_uyu !== null && apt.gastos_comunes_uyu !== undefined
+    ? `<strong>$U ${apt.gastos_comunes_uyu.toLocaleString("es-UY")}/mes</strong>`
     : `<span style="color:#94a3b8">Sin dato</span>`;
 
   const daysStr = apt.days_on_market
@@ -208,7 +207,7 @@ function cardHTML(apt) {
       </div>
       <div class="stat">
         <div class="stat-label">Alquiler estimado</div>
-        <div class="stat-value">U$S ${apt.estimated_rent_usd}/mes</div>
+        <div class="stat-value">$U ${(apt.estimated_rent_uyu || apt.estimated_rent_usd * 43).toLocaleString("es-UY")}/mes</div>
       </div>
       <div class="stat">
         <div class="stat-label">Superficie</div>
@@ -265,7 +264,7 @@ function updateSliderDisplay(id) {
 
   if (id === "price-max") display.textContent = `U$S ${Number(val).toLocaleString()}`;
   else if (id === "rent-min") display.textContent = `${val}%`;
-  else if (id === "ggcc-max") display.textContent = `U$S ${val}/mes`;
+  else if (id === "ggcc-max") display.textContent = `$U ${Number(val).toLocaleString("es-UY")}/mes`;
 }
 
 function updateLastUpdated(isoStr) {
@@ -307,9 +306,9 @@ function showError(msg) {
 }
 
 function resetFilters() {
-  document.getElementById("price-max").value = 88000;
+  document.getElementById("price-max").value = 98000;
   document.getElementById("rent-min").value = 0;
-  document.getElementById("ggcc-max").value = 500;
+  document.getElementById("ggcc-max").value = 30000;
   document.getElementById("ggcc-unknown").checked = true;
   document.getElementById("filter-1dorm").checked = true;
   document.getElementById("filter-mono").checked = true;
