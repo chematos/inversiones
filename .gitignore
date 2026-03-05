@@ -1,0 +1,5 @@
+venv/
+__pycache__/
+*.pyc
+scraper/debug_infocasas.json
+.DS_Store

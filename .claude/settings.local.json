@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 -c \":*)",
+      "Bash(pip install playwright -q)",
+      "Bash(python3 -m playwright install chromium)",
+      "Bash(pip3 install playwright -q)",
+      "Bash(python3 -m venv venv)",
+      "Bash(venv/bin/pip install playwright beautifulsoup4 lxml -q)",
+      "Bash(venv/bin/playwright install chromium)"
+    ]
+  }
+}

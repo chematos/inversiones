@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Inversiones MVD</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<!-- ─── Header ─────────────────────────────────────────────────────────────── -->
+<header>
+  <h1>Inversiones Montevideo</h1>
+  <div class="meta">
+    <span id="last-updated">Cargando...</span>
+    <a href="https://github.com/chematos/inversiones/actions/workflows/scrape.yml"
+       target="_blank" rel="noopener" class="btn btn-ghost" title="Ejecutar scraper en GitHub Actions">
+      Actualizar en GitHub
+    </a>
+    <button id="btn-reload" class="btn" title="Recargar datos del JSON actual">
+      Recargar
+    </button>
+  </div>
+</header>
+
+<!-- ─── Layout principal ────────────────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- Sidebar filtros -->
+  <aside class="filters">
+    <h2>Filtros</h2>
+
+    <!-- Precio maximo -->
+    <div class="filter-section">
+      <span class="filter-label">Precio maximo</span>
+      <div class="range-row">
+        <input type="range" id="price-max" min="30000" max="88000" step="1000" value="88000" />
+        <span class="range-val" id="price-max-val">U$S 88,000</span>
+      </div>
+    </div>
+
+    <!-- Rentabilidad minima -->
+    <div class="filter-section">
+      <span class="filter-label">Rentabilidad anual minima</span>
+      <div class="range-row">
+        <input type="range" id="rent-min" min="0" max="15" step="0.5" value="0" />
+        <span class="range-val" id="rent-min-val">0%</span>
+      </div>
+    </div>
+
+    <!-- Gastos comunes maximos -->
+    <div class="filter-section">
+      <span class="filter-label">Gastos comunes maximos</span>
+      <div class="range-row">
+        <input type="range" id="ggcc-max" min="0" max="500" step="10" value="500" />
+        <span class="range-val" id="ggcc-max-val">U$S 500/mes</span>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">Incluir apartamentos sin dato de GGCC</span>
+        <label class="toggle">
+          <input type="checkbox" id="ggcc-unknown" checked />
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- Tipo de habitacion -->
+    <div class="filter-section">
+      <span class="filter-label">Tipo</span>
+      <div class="checkbox-group filter-rooms">
+        <div class="checkbox-item">
+          <input type="checkbox" id="filter-1dorm" checked />
+          <label for="filter-1dorm">1 dormitorio</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" id="filter-mono" checked />
+          <label for="filter-mono">Monoambiente</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Zonas -->
+    <div class="filter-section">
+      <span class="filter-label">Zonas</span>
+      <div id="zone-checkboxes" class="checkbox-group">
+        <!-- Generado dinamicamente por app.js -->
+      </div>
+    </div>
+
+    <button id="btn-reset" class="btn-reset">Restablecer filtros</button>
+  </aside>
+
+  <!-- Contenido principal -->
+  <main>
+    <div class="results-header">
+      <span id="results-count"><strong>0</strong> apartamentos</span>
+      <div class="sort-row">
+        <label for="sort">Ordenar por:</label>
+        <select id="sort">
+          <option value="score">Score (mayor primero)</option>
+          <option value="rent">Rentabilidad % (mayor primero)</option>
+          <option value="price-asc">Precio (menor primero)</option>
+          <option value="price-desc">Precio (mayor primero)</option>
+          <option value="m2">Precio/m² (menor primero)</option>
+          <option value="days">Dias publicado (mas tiempo primero)</option>
+        </select>
+      </div>
+    </div>
+
+    <div id="cards-grid">
+      <!-- Cards generadas por app.js -->
+    </div>
+  </main>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
