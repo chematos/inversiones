@@ -1,0 +1,1861 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Curso: Dashboard de Inversiones Inmobiliarias</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --surface: #1e293b;
+      --surface2: #273548;
+      --border: #334155;
+      --accent: #6366f1;
+      --accent2: #8b5cf6;
+      --green: #10b981;
+      --yellow: #f59e0b;
+      --red: #ef4444;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --code-bg: #161e2e;
+      --sidebar-w: 280px;
+      --header-h: 60px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      font-size: 15px;
+    }
+
+    /* ── Header ── */
+    .site-header {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      height: var(--header-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; padding: 0 24px; gap: 16px;
+    }
+    .site-header .logo {
+      font-size: 14px; font-weight: 700; color: var(--accent);
+      letter-spacing: 0.5px; white-space: nowrap;
+    }
+    .site-header .subtitle {
+      font-size: 12px; color: var(--muted); border-left: 1px solid var(--border);
+      padding-left: 16px;
+    }
+    .site-header .menu-btn {
+      display: none; margin-left: auto; background: none; border: none;
+      color: var(--text); cursor: pointer; font-size: 20px;
+    }
+
+    /* ── Layout ── */
+    .layout {
+      padding-top: var(--header-h);
+      min-height: 100vh;
+    }
+
+    /* ── Sidebar ── */
+    .sidebar {
+      position: fixed;
+      top: var(--header-h);
+      left: 0;
+      width: var(--sidebar-w);
+      height: calc(100vh - var(--header-h));
+      overflow-y: auto;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 20px 0;
+    }
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .sidebar-section { padding: 4px 16px; margin-bottom: 4px; }
+    .sidebar-label {
+      font-size: 10px; font-weight: 700; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted);
+      padding: 8px 16px 4px;
+    }
+    .sidebar a {
+      display: flex; align-items: center; gap: 10px;
+      padding: 7px 16px; text-decoration: none;
+      color: var(--muted); font-size: 13px; border-radius: 6px;
+      transition: all 0.15s; border-left: 2px solid transparent;
+    }
+    .sidebar a:hover { color: var(--text); background: var(--surface2); }
+    .sidebar a.active { color: var(--accent); border-left-color: var(--accent); background: rgba(99,102,241,0.1); }
+    .sidebar .ch-num {
+      min-width: 22px; height: 22px; border-radius: 50%;
+      background: var(--surface2); font-size: 11px; font-weight: 700;
+      display: flex; align-items: center; justify-content: center; color: var(--muted);
+    }
+    .sidebar a.active .ch-num { background: var(--accent); color: #fff; }
+
+    /* ── Content ── */
+    .content {
+      margin-left: var(--sidebar-w);
+      padding: 48px 56px;
+      max-width: calc(var(--sidebar-w) + 860px);
+      min-width: 0;
+    }
+
+    /* ── Chapters ── */
+    .chapter {
+      margin-bottom: 80px;
+      padding-bottom: 48px;
+      border-bottom: 1px solid var(--border);
+    }
+    .chapter:last-child { border-bottom: none; }
+
+    .chapter-header {
+      display: flex; align-items: flex-start; gap: 16px; margin-bottom: 32px;
+    }
+    .chapter-num {
+      width: 48px; height: 48px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px; font-weight: 800; color: #fff; flex-shrink: 0;
+    }
+    .chapter-meta .chapter-tag {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 1px; color: var(--accent); margin-bottom: 4px;
+    }
+    .chapter-meta h2 {
+      font-size: 26px; font-weight: 700; color: var(--text); line-height: 1.2;
+    }
+
+    h3 {
+      font-size: 18px; font-weight: 600; color: var(--text);
+      margin: 32px 0 12px; padding-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+    }
+    h4 { font-size: 15px; font-weight: 600; color: var(--text); margin: 20px 0 8px; }
+    p { color: var(--muted); margin-bottom: 16px; }
+    p strong { color: var(--text); }
+
+    ul, ol { color: var(--muted); padding-left: 24px; margin-bottom: 16px; }
+    li { margin-bottom: 6px; }
+    li strong { color: var(--text); }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Code blocks ── */
+    .code-block {
+      position: relative; margin: 20px 0; border-radius: 10px;
+      overflow: hidden; border: 1px solid var(--border);
+    }
+    .code-block-header {
+      background: var(--surface2); padding: 8px 16px;
+      display: flex; align-items: center; justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+    .code-block-filename {
+      font-size: 12px; color: var(--muted); font-family: monospace;
+    }
+    .copy-btn {
+      font-size: 11px; padding: 3px 10px; border-radius: 4px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--muted); cursor: pointer; transition: all 0.15s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: var(--accent); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    pre[class*="language-"] {
+      margin: 0 !important; border-radius: 0 !important;
+      font-size: 13px !important; line-height: 1.6 !important;
+      background: var(--code-bg) !important;
+      padding: 20px !important;
+      overflow-x: auto;
+    }
+    code:not([class]) {
+      background: var(--surface2); color: #e2e8f0;
+      padding: 2px 6px; border-radius: 4px; font-size: 13px;
+      font-family: "JetBrains Mono", "Fira Code", monospace;
+      border: 1px solid var(--border);
+    }
+
+    /* ── Callouts ── */
+    .callout {
+      display: flex; gap: 14px; padding: 16px 20px;
+      border-radius: 10px; margin: 20px 0; font-size: 14px;
+    }
+    .callout-icon { font-size: 20px; flex-shrink: 0; margin-top: 1px; }
+    .callout-body { color: var(--muted); }
+    .callout-body strong { color: var(--text); display: block; margin-bottom: 4px; }
+    .callout.info { background: rgba(99,102,241,0.1); border: 1px solid rgba(99,102,241,0.3); }
+    .callout.tip  { background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.3); }
+    .callout.warn { background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); }
+
+    /* ── Diagrams ── */
+    .diagram-wrap {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px; margin: 20px 0;
+      overflow-x: auto;
+    }
+    .diagram-wrap .mermaid { display: flex; justify-content: center; }
+
+    /* ── Architecture boxes ── */
+    .arch-grid {
+      display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px; margin: 20px 0;
+    }
+    .arch-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 16px;
+    }
+    .arch-card .arch-icon { font-size: 28px; margin-bottom: 8px; }
+    .arch-card .arch-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+    .arch-card .arch-desc { font-size: 12px; color: var(--muted); }
+
+    /* ── Steps ── */
+    .steps { margin: 20px 0; }
+    .step {
+      display: flex; gap: 16px; margin-bottom: 24px;
+    }
+    .step-num {
+      width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; font-weight: 700; margin-top: 2px;
+    }
+    .step-content h4 { margin-top: 4px; }
+
+    /* ── Table ── */
+    table {
+      width: 100%; border-collapse: collapse; margin: 20px 0;
+      font-size: 13px;
+    }
+    th {
+      background: var(--surface2); color: var(--text);
+      padding: 10px 14px; text-align: left; font-size: 12px;
+      font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;
+      border: 1px solid var(--border);
+    }
+    td {
+      padding: 10px 14px; color: var(--muted);
+      border: 1px solid var(--border);
+    }
+    tr:nth-child(even) td { background: rgba(255,255,255,0.02); }
+
+    /* ── Badge ── */
+    .badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px; border-radius: 20px; font-size: 11px; font-weight: 600;
+    }
+    .badge.green { background: rgba(16,185,129,0.15); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+    .badge.purple { background: rgba(99,102,241,0.15); color: var(--accent); border: 1px solid rgba(99,102,241,0.3); }
+    .badge.yellow { background: rgba(245,158,11,0.15); color: var(--yellow); border: 1px solid rgba(245,158,11,0.3); }
+
+    /* ── Flow diagram ascii ── */
+    .flow-box {
+      background: var(--code-bg); border: 1px solid var(--border);
+      border-radius: 10px; padding: 24px; margin: 20px 0;
+      font-family: monospace; font-size: 13px; color: var(--muted);
+      line-height: 2; overflow-x: auto; white-space: pre;
+    }
+    .flow-box .hl { color: var(--accent); font-weight: bold; }
+    .flow-box .hl2 { color: var(--green); font-weight: bold; }
+    .flow-box .hl3 { color: var(--yellow); font-weight: bold; }
+
+    /* ── Highlight box ── */
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(139,92,246,0.1));
+      border: 1px solid rgba(99,102,241,0.3);
+      border-radius: 12px; padding: 24px; margin: 24px 0;
+    }
+    .highlight-box h4 { color: var(--accent); margin-top: 0; border: none; }
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {
+      :root { --sidebar-w: 0px; }
+      .sidebar { display: none; left: -280px; width: 280px; z-index: 200; transition: left 0.3s; }
+      .sidebar.open { display: block; left: 0; }
+      .content { margin-left: 0; padding: 32px 24px; }
+      .site-header .menu-btn { display: block; }
+    }
+
+    /* ── Progress bar ── */
+    .reading-progress {
+      position: fixed; top: 0; left: 0; height: 3px;
+      background: linear-gradient(to right, var(--accent), var(--accent2));
+      transition: width 0.1s; z-index: 200;
+    }
+  </style>
+</head>
+<body>
+
+<div class="reading-progress" id="progress"></div>
+
+<!-- Header -->
+<header class="site-header">
+  <div class="logo">Curso: Dashboard Inversiones Inmobiliarias</div>
+  <div class="subtitle">Scraping · Python async · GitHub Actions · Pages</div>
+  <button class="menu-btn" onclick="toggleSidebar()">&#9776;</button>
+</header>
+
+<!-- Sidebar -->
+<nav class="sidebar" id="sidebar">
+  <div class="sidebar-label">Introduccion</div>
+  <a href="#ch0" class="nav-link"><span class="ch-num">0</span>Que vamos a construir</a>
+
+  <div class="sidebar-label">Fundamentos</div>
+  <a href="#ch1" class="nav-link"><span class="ch-num">1</span>Arquitectura del sistema</a>
+  <a href="#ch2" class="nav-link"><span class="ch-num">2</span>Setup del entorno</a>
+
+  <div class="sidebar-label">Scraper</div>
+  <a href="#ch3" class="nav-link"><span class="ch-num">3</span>Web scraping con Playwright</a>
+  <a href="#ch4" class="nav-link"><span class="ch-num">4</span>Parseando HTML con BeautifulSoup</a>
+  <a href="#ch5" class="nav-link"><span class="ch-num">5</span>Paralelizacion con asyncio</a>
+
+  <div class="sidebar-label">Logica de negocio</div>
+  <a href="#ch6" class="nav-link"><span class="ch-num">6</span>Scoring y rentabilidad</a>
+
+  <div class="sidebar-label">Frontend</div>
+  <a href="#ch7" class="nav-link"><span class="ch-num">7</span>Dashboard estatico</a>
+
+  <div class="sidebar-label">Deploy</div>
+  <a href="#ch8" class="nav-link"><span class="ch-num">8</span>GitHub Actions: automatizacion</a>
+  <a href="#ch9" class="nav-link"><span class="ch-num">9</span>GitHub Pages: hosting</a>
+</nav>
+
+<!-- Content -->
+<div class="layout">
+<main class="content">
+
+<!-- ═══════════════════════════════════════════ CAPITULO 0 ══ -->
+<section class="chapter" id="ch0">
+  <div class="chapter-header">
+    <div class="chapter-num">0</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Introduccion</div>
+      <h2>Que vamos a construir</h2>
+    </div>
+  </div>
+
+  <p>
+    Este curso te guia paso a paso para construir un <strong>dashboard personal de inversiones inmobiliarias</strong>:
+    una herramienta que extrae automaticamente datos de portales de propiedades, calcula metricas de rentabilidad,
+    y los presenta en una interfaz web que se actualiza sola todos los dias.
+  </p>
+
+  <div class="arch-grid">
+    <div class="arch-card">
+      <div class="arch-icon">&#128202;</div>
+      <div class="arch-title">Dashboard web</div>
+      <div class="arch-desc">Filtros interactivos, tarjetas con metricas, orden por score</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#129302;</div>
+      <div class="arch-title">Scraper automatico</div>
+      <div class="arch-desc">Python + Playwright, extrae datos de MercadoLibre</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#9889;</div>
+      <div class="arch-title">Actualizacion diaria</div>
+      <div class="arch-desc">GitHub Actions ejecuta el scraper cada manana</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#127760;</div>
+      <div class="arch-title">Hosting gratuito</div>
+      <div class="arch-desc">GitHub Pages sirve el dashboard sin costo</div>
+    </div>
+  </div>
+
+  <h3>Tecnologias que vamos a usar</h3>
+  <table>
+    <tr><th>Capa</th><th>Tecnologia</th><th>Por que</th></tr>
+    <tr><td>Scraping</td><td>Python + Playwright</td><td>Renderiza JavaScript, indispensable para SPAs y sitios modernos</td></tr>
+    <tr><td>Parsing HTML</td><td>BeautifulSoup 4</td><td>API simple y robusta para navegar el DOM</td></tr>
+    <tr><td>Concurrencia</td><td>asyncio (stdlib)</td><td>I/O-bound: el async nativo de Python es ideal</td></tr>
+    <tr><td>Frontend</td><td>HTML + CSS + JS vanilla</td><td>Sin build step, funciona en GitHub Pages directamente</td></tr>
+    <tr><td>CI/CD</td><td>GitHub Actions</td><td>Gratuito en repos publicos, integrado con el repo</td></tr>
+    <tr><td>Hosting</td><td>GitHub Pages</td><td>Gratuito, HTTPS automatico, deploy por push</td></tr>
+  </table>
+
+  <h3>Pre-requisitos</h3>
+  <p>Asumimos que conoces:</p>
+  <ul>
+    <li>Python basico (funciones, listas, diccionarios, excepciones)</li>
+    <li>HTML/CSS/JavaScript a nivel introductorio</li>
+    <li>Git (commits, push, branches)</li>
+    <li>Como usar la terminal</li>
+  </ul>
+  <p>No necesitas saber nada de scraping, async, ni GitHub Actions.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 1 ══ -->
+<section class="chapter" id="ch1">
+  <div class="chapter-header">
+    <div class="chapter-num">1</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Fundamentos</div>
+      <h2>Arquitectura del sistema</h2>
+    </div>
+  </div>
+
+  <p>
+    Antes de escribir una sola linea de codigo, es fundamental entender como encajan las piezas.
+    Un sistema mal diseñado desde el inicio lleva a codigo desorganizado que es dificil de mantener o extender.
+  </p>
+
+  <h3>Flujo de datos</h3>
+  <p>El sistema funciona en dos fases independientes:</p>
+
+  <div class="diagram-wrap">
+    <div class="mermaid">
+graph LR
+    A["MercadoLibre<br/>(web)"] -->|"Playwright<br/>extrae HTML"| B["scraper.py<br/>(Python)"]
+    B -->|"Escribe JSON"| C["data/apartments.json"]
+    C -->|"fetch() HTTP"| D["app.js<br/>(navegador)"]
+    D -->|"Renderiza"| E["Dashboard<br/>(usuario)"]
+
+    style A fill:#1e293b,stroke:#475569,color:#94a3b8
+    style B fill:#312e81,stroke:#6366f1,color:#e0e7ff
+    style C fill:#064e3b,stroke:#10b981,color:#a7f3d0
+    style D fill:#1e3a5f,stroke:#3b82f6,color:#bfdbfe
+    style E fill:#1e293b,stroke:#475569,color:#94a3b8
+    </div>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-icon">&#128161;</div>
+    <div class="callout-body">
+      <strong>Separacion de responsabilidades</strong>
+      El scraper y el frontend son completamente independientes. El unico contrato entre ellos es el formato del archivo <code>data/apartments.json</code>. Esto permite modificar uno sin tocar el otro.
+    </div>
+  </div>
+
+  <h3>Estructura de carpetas</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">estructura del proyecto</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash">inversiones/
+├── .github/
+│   └── workflows/
+│       └── scrape.yml       # Automatizacion: cron diario
+├── scraper/
+│   ├── scraper.py           # Logica de extraccion de datos
+│   └── requirements.txt     # Dependencias Python
+├── data/
+│   └── apartments.json      # Datos generados (NO editar a mano)
+├── index.html               # Dashboard (GitHub Pages lo sirve)
+├── style.css
+├── app.js
+└── Makefile                 # Atajos de comandos</code></pre>
+  </div>
+
+  <h3>Dos fases: Fase 1 (recoleccion) y Fase 2 (consulta)</h3>
+
+  <div class="diagram-wrap">
+    <div class="mermaid">
+sequenceDiagram
+    participant GHA as GitHub Actions
+    participant SC as scraper.py
+    participant ML as MercadoLibre
+    participant JSON as apartments.json
+    participant USR as Usuario (navegador)
+
+    Note over GHA,JSON: Fase 1: Recoleccion (background, 1 vez/dia)
+    GHA->>SC: ejecuta python scraper.py
+    SC->>ML: GET paginas de busqueda
+    ML-->>SC: HTML con listados
+    SC->>ML: GET paginas de detalle (x60)
+    ML-->>SC: HTML con GGCC, m2, etc.
+    SC->>JSON: escribe resultado
+
+    Note over JSON,USR: Fase 2: Consulta (tiempo real, on-demand)
+    USR->>JSON: fetch() desde el navegador
+    JSON-->>USR: datos JSON
+    USR->>USR: filtra y renderiza cards
+    </div>
+  </div>
+
+  <p>
+    Este patron se llama <strong>Static Site Generation (SSG) con datos pre-computados</strong>.
+    La gran ventaja es que el dashboard carga rapidisimo: no hay servidor, ni base de datos,
+    ni queries en tiempo real.
+  </p>
+
+  <h3>El archivo apartments.json</h3>
+  <p>Es el contrato entre el scraper y el frontend. Su estructura:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">data/apartments.json</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-json">{
+  "last_updated": "2026-03-06T11:30:00Z",
+  "total": 42,
+  "tc_usd_uyu": 43.8,
+  "apartments": [
+    {
+      "id": "MLU-123456",
+      "title": "Apartamento 1 dorm en Buceo",
+      "price_usd": 85000,
+      "m2": 42,
+      "price_per_m2": 2023,
+      "zone": "Buceo",
+      "gastos_comunes_uyu": 8500,
+      "estimated_rent_uyu": 27000,
+      "rentability_pct": 7.41,
+      "score": 74,
+      "days_on_market": 15,
+      "url": "https://...",
+      "thumbnail": "https://..."
+    }
+  ]
+}</code></pre>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 2 ══ -->
+<section class="chapter" id="ch2">
+  <div class="chapter-header">
+    <div class="chapter-num">2</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Fundamentos</div>
+      <h2>Setup del entorno</h2>
+    </div>
+  </div>
+
+  <p>Un buen setup inicial ahorra horas de frustracion. Vamos a configurar el entorno de desarrollo de forma profesional.</p>
+
+  <h3>1. Crear el repositorio</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Crear repo en GitHub</h4>
+        <p>Ve a github.com y crea un nuevo repositorio publico llamado <code>inversiones</code>. Los repos publicos tienen GitHub Actions y Pages <strong>gratis</strong>.</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Clonar localmente</h4>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+          </div>
+          <pre><code class="language-bash">git clone https://github.com/TU_USUARIO/inversiones.git
+cd inversiones</code></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h3>2. Entorno virtual Python</h3>
+  <p>
+    Un entorno virtual aisla las dependencias de tu proyecto de las del sistema operativo.
+    Es una practica <strong>obligatoria</strong> en proyectos Python profesionales.
+  </p>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash"># Crear el entorno virtual (crea una carpeta "venv/")
+python3 -m venv venv
+
+# Activarlo (macOS/Linux)
+source venv/bin/activate
+
+# Activarlo (Windows)
+venv\Scripts\activate
+
+# El prompt cambia para indicar que el venv esta activo:
+# (venv) $</code></pre>
+  </div>
+
+  <h3>3. Instalar dependencias</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/requirements.txt</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-text">playwright==1.50.0
+beautifulsoup4==4.12.3
+lxml==5.1.0
+requests==2.32.3</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash">pip install -r scraper/requirements.txt
+
+# Playwright necesita descargar el navegador por separado
+playwright install chromium</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">&#128218;</div>
+    <div class="callout-body">
+      <strong>Por que versiones fijas?</strong>
+      Usar <code>==1.50.0</code> en lugar de <code>&gt;=1.50.0</code> garantiza reproducibilidad: el mismo <code>requirements.txt</code> instala exactamente lo mismo en tu maquina, en GitHub Actions, y en la de cualquier otro desarrollador.
+    </div>
+  </div>
+
+  <h3>4. El .gitignore</h3>
+  <p>Hay archivos que nunca deben ir al repositorio:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">.gitignore</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-text">venv/
+__pycache__/
+*.pyc
+.env
+*.log
+.DS_Store</code></pre>
+  </div>
+
+  <h3>5. El Makefile (atajos de comandos)</h3>
+  <p>Un Makefile evita tener que recordar comandos largos:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">Makefile</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-makefile">scrape:
+	python scraper/scraper.py
+
+test:
+	python scraper/scraper.py --test
+
+serve:
+	python -m http.server 8080</code></pre>
+  </div>
+  <p>Ahora puedes usar <code>make test</code>, <code>make serve</code>, etc.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 3 ══ -->
+<section class="chapter" id="ch3">
+  <div class="chapter-header">
+    <div class="chapter-num">3</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Scraper</div>
+      <h2>Web scraping con Playwright</h2>
+    </div>
+  </div>
+
+  <p>
+    El scraping consiste en extraer datos de sitios web de forma automatica.
+    El desafio moderno es que la mayoria de sitios usan <strong>JavaScript para renderizar su contenido</strong>,
+    por lo que un simple <code>requests.get()</code> devuelve una pagina vacia.
+  </p>
+
+  <h3>Por que Playwright y no requests?</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+graph TD
+    A["requests.get(url)"] -->|"Descarga el HTML inicial"| B["HTML sin contenido<br/>(React/Vue/Next.js)"]
+    C["Playwright"] -->|"Lanza un navegador real<br/>espera a que JS ejecute"| D["HTML completo<br/>con todos los datos"]
+    style B fill:#450a0a,stroke:#ef4444,color:#fca5a5
+    style D fill:#064e3b,stroke:#10b981,color:#a7f3d0
+    </div>
+  </div>
+
+  <p>
+    MercadoLibre es una Single Page Application (SPA): la lista de propiedades se carga via JavaScript
+    despues de que la pagina inicial llega al navegador. Playwright lanza un navegador Chromium real
+    y espera a que el contenido aparezca.
+  </p>
+
+  <h3>Playwright: conceptos clave</h3>
+  <table>
+    <tr><th>Concepto</th><th>Que es</th></tr>
+    <tr><td><code>async_playwright()</code></td><td>Context manager que gestiona el ciclo de vida de Playwright</td></tr>
+    <tr><td><code>browser</code></td><td>Instancia del proceso Chromium (headless por defecto)</td></tr>
+    <tr><td><code>context</code></td><td>Perfil de navegacion aislado (cookies, localStorage propios)</td></tr>
+    <tr><td><code>page</code></td><td>Una pestaña del navegador. Sobre esta se llama <code>goto()</code>, <code>content()</code>, etc.</td></tr>
+  </table>
+
+  <div class="callout info">
+    <div class="callout-icon">&#129488;</div>
+    <div class="callout-body">
+      <strong>Por que crear un context por cada detalle?</strong>
+      Los contexts son completamente aislados: cookies, sesiones, headers. Scrapeando detalles en paralelo, queremos que cada pestaña sea independiente para evitar que el sitio detecte el patron de un solo "usuario" abriendo 6 tabs simultaneas con las mismas cookies.
+    </div>
+  </div>
+
+  <h3>Estructura async del scraper</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py — estructura principal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">import asyncio
+from playwright.async_api import async_playwright
+
+async def run():
+    async with async_playwright() as p:
+        # Lanzamos Chromium en modo headless (sin ventana visible)
+        browser = await p.chromium.launch(headless=True)
+
+        # Fase 1: scrapeamos listados de busqueda
+        listings = await scrape_all_listings(browser)
+
+        # Fase 2: scrapeamos detalles en paralelo
+        details = await fetch_all_details(browser, listings)
+
+        await browser.close()
+
+    # Procesamos y guardamos
+    apartments = build_all_apartments(listings, details)
+    save_results(apartments)
+
+# Punto de entrada
+if __name__ == "__main__":
+    asyncio.run(run())</code></pre>
+  </div>
+
+  <h3>Navegar con resiliencia: safe_goto</h3>
+  <p>
+    Los sitios de scraping a veces dan timeout o errores de red. En vez de dejar que el scraper
+    falle completamente, implementamos reintentos:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">async def safe_goto(page: Page, url: str, retries: int = 2) -> bool:
+    """Navega a una URL con reintentos. Devuelve True si tuvo exito."""
+    for attempt in range(retries):
+        try:
+            # wait_until="networkidle": espera hasta que no haya requests de red
+            # Esto asegura que el JS ya cargo todos los datos
+            await page.goto(url, wait_until="networkidle", timeout=60000)
+            return True
+        except Exception:
+            log.warning(f"Intento {attempt+1} fallido. Reintentando...")
+            # Pausa aleatoria para no sobrecargar el servidor
+            await asyncio.sleep(random.uniform(4, 8))
+    return False  # Todos los reintentos fallaron</code></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">&#9888;</div>
+    <div class="callout-body">
+      <strong>Sobre el scraping etico</strong>
+      Agrega pausas entre requests (<code>asyncio.sleep</code>) para no sobrecargar los servidores. Limita la concurrencia. Revisa el <code>robots.txt</code> del sitio. El scraping excesivo puede resultar en bloqueo de IP.
+    </div>
+  </div>
+
+  <h3>Simular un navegador real</h3>
+  <p>
+    Los sitios detectan bots por el User-Agent. Configuramos el contexto para parecernos a un navegador normal:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">async def new_context(browser: Browser) -> BrowserContext:
+    return await browser.new_context(
+        user_agent=(
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/122.0.0.0 Safari/537.36"
+        ),
+        locale="es-UY",  # Idioma del navegador
+    )</code></pre>
+  </div>
+
+  <h3>Estrategia de paginacion</h3>
+  <p>MercadoLibre usa offset para paginar. La pagina 1 empieza en 0, la pagina 2 en 49, etc:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">async def scrape_zone(page, zone_name, zone_slug, seen_urls, max_pages):
+    offset = 0
+    pg = 1
+
+    while pg <= max_pages:
+        url = zone_url(zone_slug, offset)
+        if not await safe_goto(page, url):
+            break  # Pagina no cargada: salimos
+
+        html = await page.content()
+        listings, stats = parse_search_page(html)
+
+        # Filtramos duplicados (puede haber solapamiento entre zonas)
+        new = [l for l in listings if l["url"] not in seen_urls]
+        for l in new:
+            seen_urls.add(l["url"])
+
+        # Verificamos si hay pagina siguiente
+        soup = BeautifulSoup(html, "lxml")
+        next_btn = soup.find(class_=re.compile(r"andes-pagination__button--next"))
+        if not next_btn or next_btn.get("disabled"):
+            break  # Ultima pagina
+
+        offset = pg * 48 + 1  # ML usa 48 items por pagina
+        pg += 1
+        await asyncio.sleep(random.uniform(1.5, 3))  # Pausa entre paginas</code></pre>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 4 ══ -->
+<section class="chapter" id="ch4">
+  <div class="chapter-header">
+    <div class="chapter-num">4</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Scraper</div>
+      <h2>Parseando HTML con BeautifulSoup</h2>
+    </div>
+  </div>
+
+  <p>
+    Una vez que Playwright nos da el HTML renderizado, necesitamos extraer la informacion.
+    BeautifulSoup convierte el HTML en un arbol de objetos Python que podemos navegar facilmente.
+  </p>
+
+  <h3>Inspeccionando el sitio: el paso mas importante</h3>
+  <p>
+    Antes de escribir codigo, abre el sitio en Chrome y usa las <strong>DevTools (F12)</strong>.
+    El panel <em>Elements</em> te permite inspeccionar el HTML y encontrar los selectores CSS
+    que identifican los datos que necesitas.
+  </p>
+
+  <div class="callout tip">
+    <div class="callout-icon">&#128269;</div>
+    <div class="callout-body">
+      <strong>Flujo de inspeccion</strong>
+      Click derecho en el elemento que te interesa → "Inspeccionar" → busca la clase CSS unica → usa esa clase en BeautifulSoup.
+    </div>
+  </div>
+
+  <h3>Parsear la pagina de listados</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">from bs4 import BeautifulSoup
+import re
+
+def parse_search_page(html: str) -> tuple[list[dict], dict]:
+    soup = BeautifulSoup(html, "lxml")  # "lxml" es el parser mas rapido
+
+    # Encontrar todos los items de la lista (excluir banners/anuncios)
+    items = [
+        li for li in soup.find_all("li", class_="ui-search-layout__item")
+        if "intervention" not in " ".join(li.get("class", []))
+    ]
+
+    results = []
+    for item in items:
+        # Extraer el link del anuncio
+        link = item.find("a", href=re.compile(r"mercadolibre\.com\.uy"))
+        if not link:
+            continue  # Item sin link: skip
+
+        url = link["href"].split("?")[0]  # Limpiamos query params de tracking
+
+        # Extraer el precio usando el aria-label accesible
+        price_span = item.find(attrs={"aria-label": re.compile(r"\d+\s+dolares", re.IGNORECASE)})
+        if not price_span:
+            continue
+
+        price_match = re.search(r"(\d[\d.]*)\s+dolares", price_span["aria-label"], re.IGNORECASE)
+        price = float(price_match.group(1).replace(".", ""))
+
+        # Extraer la zona de la ubicacion
+        loc_el = item.find(class_="poly-component__location")
+        location = loc_el.get_text(strip=True) if loc_el else ""
+
+        results.append({
+            "url": url,
+            "price_usd": price,
+            "location": location,
+            # ... mas campos
+        })
+
+    return results, {}</code></pre>
+  </div>
+
+  <h3>Tecnicas clave de BeautifulSoup</h3>
+  <table>
+    <tr><th>Metodo</th><th>Uso</th><th>Ejemplo</th></tr>
+    <tr><td><code>find()</code></td><td>Primer elemento que coincide</td><td><code>soup.find("a", href=re.compile(r"ML"))</code></td></tr>
+    <tr><td><code>find_all()</code></td><td>Lista de todos los que coinciden</td><td><code>soup.find_all("li", class_="item")</code></td></tr>
+    <tr><td><code>get_text()</code></td><td>Texto visible del elemento</td><td><code>el.get_text(strip=True)</code></td></tr>
+    <tr><td><code>el["attr"]</code></td><td>Valor de un atributo</td><td><code>link["href"]</code></td></tr>
+    <tr><td><code>el.get("attr")</code></td><td>Valor de atributo (sin exception si no existe)</td><td><code>btn.get("disabled")</code></td></tr>
+  </table>
+
+  <h3>Usar regex para extraer numeros del texto</h3>
+  <p>El HTML guarda numeros en texto plano como "42 m²" o "85.000 dolares". Usamos regex para extraerlos:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">ejemplo de regex</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">import re
+
+# Extraer m2 de texto como "42 m²" o "42m²"
+text = "Superficie: 42 m²"
+m = re.search(r"(\d+)\s*m²", text, re.IGNORECASE)
+if m:
+    m2 = int(m.group(1))  # m.group(1) = el primer grupo de captura: "42"
+
+# Extraer precio de "85.000 dolares" (punto como separador de miles en es-UY)
+text = "85.000 dolares"
+m = re.search(r"(\d[\d.]*)\s+dolares", text, re.IGNORECASE)
+if m:
+    price = float(m.group(1).replace(".", ""))  # "85.000" -> 85000.0</code></pre>
+  </div>
+
+  <h3>Parsear la pagina de detalle</h3>
+  <p>Cada anuncio tiene una pagina propia con mas informacion. La tabla de especificaciones es clave:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py — scrape_detail()</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">async def scrape_detail(browser, url, sem):
+    result = {
+        "gastos_comunes_uyu": None,
+        "days_on_market": None,
+        "m2_detail": None,
+    }
+
+    async with sem:  # Semaforo de concurrencia (ver capitulo 5)
+        ctx = await new_context(browser)
+        page = await ctx.new_page()
+        try:
+            if not await safe_goto(page, url):
+                return result
+
+            html = await page.content()
+            soup = BeautifulSoup(html, "lxml")
+
+            # La tabla "Caracteristicas del inmueble"
+            table = soup.find(class_=re.compile(r"andes-table"))
+            if table:
+                for row in table.find_all("tr"):
+                    cells = row.find_all(["th", "td"])
+                    if len(cells) < 2:
+                        continue
+                    key = cells[0].get_text(strip=True).lower()
+                    val = cells[1].get_text(strip=True)
+
+                    if "gastos comunes" in key:
+                        m = re.search(r"(\d[\d.,]*)", val)
+                        if m:
+                            result["gastos_comunes_uyu"] = float(
+                                m.group(1).replace(".", "").replace(",", ".")
+                            )
+
+        finally:
+            await ctx.close()  # Siempre cerramos el contexto
+
+    return result</code></pre>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 5 ══ -->
+<section class="chapter" id="ch5">
+  <div class="chapter-header">
+    <div class="chapter-num">5</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Scraper</div>
+      <h2>Paralelizacion con asyncio</h2>
+    </div>
+  </div>
+
+  <p>
+    Scrapeamos los detalles de 60 apartamentos. Si los procesamos uno por uno, con un promedio
+    de 8 segundos por pagina, tardariamos <strong>8 minutos</strong>.
+    Con paralelizacion, podemos hacer 6 a la vez y terminar en <strong>80 segundos</strong>.
+  </p>
+
+  <h3>Sincronico vs Asincrono</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+gantt
+    title Scraping de 6 detalles
+    dateFormat  s
+    axisFormat  %Ss
+
+    section Sincronico (secuencial)
+    Apto 1 :a1, 0, 8s
+    Apto 2 :a2, after a1, 8s
+    Apto 3 :a3, after a2, 8s
+    Apto 4 :a4, after a3, 8s
+    Apto 5 :a5, after a4, 8s
+    Apto 6 :a6, after a5, 8s
+
+    section Asincrono (paralelo, concurrencia=6)
+    Apto 1 :b1, 0, 8s
+    Apto 2 :b2, 0, 8s
+    Apto 3 :b3, 0, 8s
+    Apto 4 :b4, 0, 8s
+    Apto 5 :b5, 0, 8s
+    Apto 6 :b6, 0, 8s
+    </div>
+  </div>
+
+  <h3>Async/await en Python: concepto</h3>
+  <p>
+    El modelo async de Python es <strong>cooperativo</strong>: una sola tarea se ejecuta a la vez en el thread principal,
+    pero cuando una tarea necesita esperar (leer red, leer disco), le cede el control a otra.
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">concepto basico de async/await</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">import asyncio
+
+async def fetch_page(url: str) -> str:
+    # "await" cede el control mientras espera la respuesta de red
+    # Otro fetch_page puede ejecutarse mientras tanto
+    response = await page.goto(url)
+    return await page.content()
+
+async def main():
+    # asyncio.gather() ejecuta las coroutines en paralelo
+    # Espera a que TODAS terminen y retorna una lista de resultados
+    resultados = await asyncio.gather(
+        fetch_page("https://ejemplo.com/1"),
+        fetch_page("https://ejemplo.com/2"),
+        fetch_page("https://ejemplo.com/3"),
+    )
+    # resultados = [html1, html2, html3]
+
+asyncio.run(main())</code></pre>
+  </div>
+
+  <h3>Semaphore: controlando la concurrencia</h3>
+  <p>
+    Si abrimos 60 tabs al mismo tiempo podriamos: (a) agotar la RAM, (b) ser detectados como bot.
+    Un <code>asyncio.Semaphore</code> limita cuantas tareas pueden ejecutarse simultaneamente:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">CONCURRENCY = 6  # Maximo 6 paginas abiertas al mismo tiempo
+
+async def run():
+    # El Semaphore permite que hasta CONCURRENCY tareas esten
+    # dentro del bloque "async with sem" al mismo tiempo.
+    # Las demas esperan su turno.
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async def fetch_one(basic: dict) -> dict:
+        # Esta funcion adquiere el semaforo antes de abrir el browser
+        detail = await scrape_detail(browser, basic["url"], sem)
+        return detail
+
+    # Creamos una tarea por cada apartamento
+    # gather() las ejecuta todas "a la vez" (respetando el semaforo)
+    details = await asyncio.gather(*[fetch_one(b) for b in listings])
+    # *[f(b) for b in listings] desempaqueta la lista como argumentos separados</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">como funciona el Semaphore internamente</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">async def scrape_detail(browser, url, sem: asyncio.Semaphore):
+    # "async with sem": intenta decrementar el contador interno del semaforo
+    # Si ya hay CONCURRENCY tareas activas, ESPERA hasta que una termine
+    async with sem:
+        # --- Solo CONCURRENCY tareas pueden estar aqui al mismo tiempo ---
+        ctx = await new_context(browser)
+        page = await ctx.new_page()
+        try:
+            await page.goto(url)
+            html = await page.content()
+            return parse_detail(html)
+        finally:
+            # El "finally" garantiza que ctx.close() se llame aunque haya error
+            # Al salir del "async with sem", el contador sube y otra tarea puede entrar
+            await ctx.close()</code></pre>
+  </div>
+
+  <div class="highlight-box">
+    <h4>Resumen del patron de paralelizacion</h4>
+    <ol style="color: var(--muted); padding-left: 20px;">
+      <li style="margin-bottom: 8px;">Definir funcion <code>async def fetch_one(item)</code> que procesa un elemento</li>
+      <li style="margin-bottom: 8px;">Usar <code>asyncio.Semaphore(N)</code> como guard dentro de la funcion</li>
+      <li style="margin-bottom: 8px;">Lanzar con <code>asyncio.gather(*[fetch_one(x) for x in items])</code></li>
+      <li>El resultado es una lista en el mismo orden que <code>items</code></li>
+    </ol>
+  </div>
+
+  <h3>Por que no usar threads?</h3>
+  <p>
+    Python tiene el GIL (Global Interpreter Lock): solo un thread Python ejecuta codigo a la vez.
+    Para I/O-bound (esperar red), <strong>asyncio es mas eficiente que threads</strong>:
+    no hay overhead de cambio de contexto y no necesitas manejar locks manuales.
+    Los threads son mejores para CPU-bound (calculos intensivos).
+  </p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 6 ══ -->
+<section class="chapter" id="ch6">
+  <div class="chapter-header">
+    <div class="chapter-num">6</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Logica de negocio</div>
+      <h2>Scoring y rentabilidad</h2>
+    </div>
+  </div>
+
+  <p>
+    El valor real del proyecto no esta en el scraping sino en la <strong>capa de analisis</strong>:
+    convertir datos crudos en metricas que ayuden a tomar decisiones de inversion.
+  </p>
+
+  <h3>El tipo de cambio en tiempo real</h3>
+  <p>
+    Las propiedades se venden en USD pero los alquileres son en UYU. Para calcular la rentabilidad,
+    necesitamos el tipo de cambio del dia:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">import requests
+
+TC_FALLBACK = 43.5  # Valor por defecto si la API falla
+
+def fetch_tc_usd_uyu() -> float:
+    """Obtiene tipo de cambio USD/UYU de open.er-api.com (gratuito, sin clave)."""
+    try:
+        resp = requests.get(
+            "https://open.er-api.com/v6/latest/USD",
+            timeout=10,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        resp.raise_for_status()  # Lanza exception si status != 2xx
+        data = resp.json()
+        tc = data["rates"]["UYU"]
+        log.info(f"TC USD/UYU: 1 USD = {tc:.2f} UYU")
+        return tc
+    except Exception as e:
+        log.warning(f"No se pudo obtener TC: {e}. Usando fallback {TC_FALLBACK}")
+    return TC_FALLBACK  # Siempre devuelve algo valido</code></pre>
+  </div>
+
+  <h3>Formula de rentabilidad bruta</h3>
+  <div class="highlight-box">
+    <h4>Formula</h4>
+    <p style="color: var(--text); font-family: monospace; font-size: 16px; text-align: center; margin: 12px 0;">
+      rentabilidad = (alquiler_mensual_uyu × 12) / (precio_usd × TC) × 100
+    </p>
+    <p>Una rentabilidad bruta del <strong>7%</strong> significa que en 14 años recuperas la inversion (sin contar gastos, impuestos, etc.).</p>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py — build_apartment()</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">def build_apartment(basic: dict, detail: dict, tc: float) -> dict:
+    price = basic["price_usd"]
+    zone = basic["zone"]
+
+    # Estimacion del alquiler segun la zona (mercado local)
+    estimated_rent_uyu = estimate_rent_uyu(zone)
+    estimated_rent_usd = round(estimated_rent_uyu / tc)
+
+    # Rentabilidad bruta anual
+    rentability_pct = round(
+        (estimated_rent_uyu * 12) / (price * tc) * 100,
+        2
+    ) if (price and tc) else 0
+
+    # Precio por m2
+    m2 = detail.get("m2_detail") or basic.get("m2")
+    price_per_m2 = round(price / m2) if (m2 and m2 > 0) else None
+
+    # Score: 10% de rentabilidad = 100 puntos
+    score = calculate_score(rentability_pct)
+
+    return {
+        "price_usd": price,
+        "rentability_pct": rentability_pct,
+        "estimated_rent_uyu": estimated_rent_uyu,
+        "estimated_rent_usd": estimated_rent_usd,
+        "price_per_m2": price_per_m2,
+        "score": score,
+        # ... otros campos
+    }
+
+
+def calculate_score(rentability_pct: float) -> int:
+    """Score 0-100. 10% anual = 100 puntos."""
+    return min(100, max(0, round(rentability_pct * 10)))</code></pre>
+  </div>
+
+  <h3>Estimacion de alquiler por zona</h3>
+  <p>Como los datos de alquiler no estan en ML (son ventas), los mantenemos manualmente en el codigo:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python"># Diccionario de alquileres estimados por zona (UYU/mes, 1 dorm / monoambiente)
+# Actualizar periodicamente con datos reales del mercado
+ZONE_RENT_UYU = {
+    "buceo":  27_000,
+    "malvin": 25_000,
+    "malvín": 25_000,  # con tilde
+}
+DEFAULT_RENT_UYU = 25_000  # Si la zona no esta en el diccionario
+
+def estimate_rent_uyu(zone_str: str) -> int:
+    norm = normalize(zone_str)  # Normaliza acentos y mayusculas
+    for zone, rent in ZONE_RENT_UYU.items():
+        if normalize(zone) in norm or norm in normalize(zone):
+            return rent
+    return DEFAULT_RENT_UYU
+
+
+def normalize(text: str) -> str:
+    """Elimina acentos y convierte a minusculas para comparacion robusta."""
+    return (
+        str(text).lower().strip()
+        .replace("á", "a").replace("é", "e").replace("í", "i")
+        .replace("ó", "o").replace("ú", "u").replace("ñ", "n")
+    )</code></pre>
+  </div>
+
+  <h3>Modo test</h3>
+  <p>El scraper puede operar en modo rapido para probar que todo funciona sin esperar 30 minutos:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">scraper/scraper.py</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">import sys
+
+# True si se llama con: python scraper.py --test
+TEST_MODE = "--test" in sys.argv
+
+async def run():
+    max_pages = 1 if TEST_MODE else 20  # 1 pagina en test, hasta 20 en produccion
+    limit = 10 if TEST_MODE else len(basic_listings)  # 10 detalles en test</code></pre>
+  </div>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash">python scraper/scraper.py --test   # 1-2 min, pocos resultados
+python scraper/scraper.py          # completo, 10-30 min</code></pre>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 7 ══ -->
+<section class="chapter" id="ch7">
+  <div class="chapter-header">
+    <div class="chapter-num">7</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Frontend</div>
+      <h2>Dashboard estatico</h2>
+    </div>
+  </div>
+
+  <p>
+    El frontend es HTML + CSS + JavaScript vanilla: sin frameworks, sin Node.js, sin build step.
+    Esto lo hace deployable directamente en GitHub Pages con cero configuracion.
+  </p>
+
+  <h3>Estructura del HTML</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">index.html — estructura general</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-html">&lt;!DOCTYPE html&gt;
+&lt;html lang="es"&gt;
+&lt;head&gt;
+  &lt;link rel="stylesheet" href="style.css" /&gt;
+&lt;/head&gt;
+&lt;body&gt;
+
+&lt;header&gt;
+  &lt;!-- Titulo y boton de recarga --&gt;
+  &lt;span id="last-updated"&gt;Cargando...&lt;/span&gt;
+&lt;/header&gt;
+
+&lt;div class="layout"&gt;
+  &lt;!-- Sidebar de filtros --&gt;
+  &lt;aside class="filters"&gt;
+    &lt;!-- Dual range sliders, checkboxes, etc. --&gt;
+  &lt;/aside&gt;
+
+  &lt;!-- Grid de tarjetas (poblado por JS) --&gt;
+  &lt;main&gt;
+    &lt;div id="cards-grid"&gt;&lt;/div&gt;
+  &lt;/main&gt;
+&lt;/div&gt;
+
+&lt;script src="app.js"&gt;&lt;/script&gt;
+&lt;/body&gt;
+&lt;/html&gt;</code></pre>
+  </div>
+
+  <h3>Cargar datos con Fetch API</h3>
+  <p>El navegador carga el JSON directamente del mismo repositorio:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">app.js</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-javascript">async function loadData() {
+  try {
+    // Cache-busting: el ?_=timestamp evita que el navegador use
+    // una version cacheada del JSON cuando los datos se actualizan
+    const res = await fetch(`./data/apartments.json?_=${Date.now()}`);
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+    allApartments = data.apartments || [];
+    updateLastUpdated(data.last_updated);
+    applyFilters();  // Aplica filtros y renderiza las cards
+
+  } catch (err) {
+    showError(err.message);
+  }
+}
+
+// Llamado al cargar la pagina
+document.addEventListener("DOMContentLoaded", () => {
+  loadData();
+});</code></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">&#9888;</div>
+    <div class="callout-body">
+      <strong>Error CORS al abrir index.html directamente</strong>
+      Los navegadores bloquean fetch() cuando abres un archivo HTML directamente (protocolo <code>file://</code>). Siempre usa un servidor local: <code>python -m http.server 8080</code> y accede a <code>http://localhost:8080</code>.
+    </div>
+  </div>
+
+  <h3>Pipeline de filtrado y renderizado</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+graph LR
+    A["allApartments[]<br/>(todos los datos)"] --> B["applyFilters()"]
+    B -->|"precio, rentab,<br/>zona, tipo..."| C["filteredApartments[]"]
+    C --> D["renderCards()"]
+    D -->|"ordena y genera HTML"| E["cards-grid"]
+    style A fill:#1e293b,stroke:#475569,color:#94a3b8
+    style C fill:#1e293b,stroke:#475569,color:#94a3b8
+    style E fill:#1e293b,stroke:#475569,color:#94a3b8
+    </div>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">app.js — applyFilters()</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-javascript">function applyFilters() {
+  const priceMin = +document.getElementById("price-min").value;
+  const priceMax = +document.getElementById("price-max").value;
+  const rentMin  = +document.getElementById("rent-min").value;
+  const rentMax  = +document.getElementById("rent-max").value;
+
+  filteredApartments = allApartments.filter((apt) => {
+    if (apt.price_usd < priceMin || apt.price_usd > priceMax) return false;
+    if (apt.rentability_pct < rentMin || apt.rentability_pct > rentMax) return false;
+    // ... mas filtros
+    return true;
+  });
+
+  renderCards();  // Re-dibuja la grilla con los resultados filtrados
+}</code></pre>
+  </div>
+
+  <h3>Generacion de tarjetas (template literal)</h3>
+  <p>En vez de un framework, generamos HTML con template literals de ES6:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">app.js — cardHTML()</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-javascript">function cardHTML(apt) {
+  // Clase CSS segun el score para el color del badge
+  const scoreClass = apt.score >= 65 ? "score-high"
+                   : apt.score >= 40 ? "score-mid"
+                   : "score-low";
+
+  // Template literal: genera HTML como string
+  return `
+    &lt;div class="apt-card"&gt;
+      &lt;img src="${esc(apt.thumbnail)}" alt="${esc(apt.title)}" loading="lazy"&gt;
+      &lt;div class="card-body"&gt;
+        &lt;div class="card-price"&gt;U$S ${Math.round(apt.price_usd).toLocaleString()}&lt;/div&gt;
+        &lt;div class="score-badge ${scoreClass}"&gt;${apt.score}&lt;/div&gt;
+        &lt;div class="stat-value"&gt;${apt.rentability_pct}% anual&lt;/div&gt;
+      &lt;/div&gt;
+      &lt;a href="${esc(apt.url)}" target="_blank"&gt;Ver anuncio&lt;/a&gt;
+    &lt;/div&gt;
+  `;
+}
+
+// SIEMPRE escapar strings del usuario o externos para prevenir XSS
+function esc(str) {
+  return String(str || "")
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+}</code></pre>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-icon">&#128737;</div>
+    <div class="callout-body">
+      <strong>Seguridad: XSS (Cross-Site Scripting)</strong>
+      Cuando insertas datos externos (titulos, URLs) en HTML, SIEMPRE usa la funcion <code>esc()</code>. Sin esto, un anuncio con titulo <code>&lt;script&gt;malo()&lt;/script&gt;</code> ejecutaria codigo malicioso en el navegador del usuario.
+    </div>
+  </div>
+
+  <h3>Dual range slider (sin librerias)</h3>
+  <p>El slider de rango doble (precio min/max) se implementa con dos inputs de tipo range superpuestos:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">index.html — dual range HTML</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-html">&lt;div class="dual-range-wrap"&gt;
+  &lt;!-- Track visual + barra de relleno --&gt;
+  &lt;div class="dual-track"&gt;
+    &lt;div class="dual-fill" id="price-fill"&gt;&lt;/div&gt;
+  &lt;/div&gt;
+  &lt;!-- Dos inputs superpuestos, transparentes --&gt;
+  &lt;input type="range" class="dual-input" id="price-min"
+         min="75000" max="98000" step="1000" value="75000" /&gt;
+  &lt;input type="range" class="dual-input" id="price-max"
+         min="75000" max="98000" step="1000" value="98000" /&gt;
+&lt;/div&gt;</code></pre>
+  </div>
+
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">app.js — logica del dual slider</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-javascript">function initDualRange(minId, maxId, fillId, fmt, minValId, maxValId) {
+  const minEl = document.getElementById(minId);
+  const maxEl = document.getElementById(maxId);
+  const fill  = document.getElementById(fillId);
+
+  function update() {
+    const lo = +minEl.value, hi = +maxEl.value;
+    const min = +minEl.min, max = +minEl.max;
+    // Calculamos el % de posicion para el fill visual
+    const pLo = (lo - min) / (max - min) * 100;
+    const pHi = (hi - min) / (max - min) * 100;
+    fill.style.left  = pLo + "%";
+    fill.style.width = (pHi - pLo) + "%";
+    // Actualizar labels
+    document.getElementById(minValId).textContent = fmt(lo);
+    document.getElementById(maxValId).textContent = fmt(hi);
+  }
+
+  minEl.addEventListener("input", () => {
+    // Evitar que el minimo supere al maximo
+    if (+minEl.value > +maxEl.value) minEl.value = maxEl.value;
+    update();
+    applyFilters();
+  });
+  maxEl.addEventListener("input", () => {
+    if (+maxEl.value < +minEl.value) maxEl.value = minEl.value;
+    update();
+    applyFilters();
+  });
+
+  update();  // Render inicial
+}</code></pre>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 8 ══ -->
+<section class="chapter" id="ch8">
+  <div class="chapter-header">
+    <div class="chapter-num">8</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Deploy</div>
+      <h2>GitHub Actions: automatizacion</h2>
+    </div>
+  </div>
+
+  <p>
+    GitHub Actions es una plataforma de CI/CD integrada en GitHub.
+    Nos permite ejecutar el scraper automaticamente todos los dias sin necesidad de
+    mantener un servidor propio.
+  </p>
+
+  <h3>Conceptos de GitHub Actions</h3>
+  <table>
+    <tr><th>Concepto</th><th>Que es</th></tr>
+    <tr><td>Workflow</td><td>Un archivo YAML que define la automatizacion completa</td></tr>
+    <tr><td>Trigger</td><td>El evento que dispara el workflow (<code>schedule</code>, <code>push</code>, <code>workflow_dispatch</code>)</td></tr>
+    <tr><td>Job</td><td>Un conjunto de pasos que se ejecutan en la misma maquina virtual</td></tr>
+    <tr><td>Step</td><td>Un comando o accion individual dentro de un job</td></tr>
+    <tr><td>Runner</td><td>La maquina virtual donde se ejecuta el job (ubuntu-latest)</td></tr>
+    <tr><td>Action</td><td>Un step reutilizable publicado en el marketplace (ej: <code>actions/checkout@v4</code>)</td></tr>
+  </table>
+
+  <h3>El workflow completo</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">.github/workflows/scrape.yml</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-yaml">name: Actualizar apartamentos
+
+on:
+  # Cron: 8am hora Uruguay (UTC-3) = 11:00 UTC
+  # Formato: minuto hora dia-del-mes mes dia-de-la-semana
+  schedule:
+    - cron: "0 11 * * *"
+  # Permite disparar manualmente desde la UI de GitHub
+  workflow_dispatch:
+
+# El workflow necesita permiso para hacer commit y push
+permissions:
+  contents: write
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest  # Maquina virtual gratuita de GitHub
+    timeout-minutes: 30     # Matar el job si tarda mas de 30 min
+
+    steps:
+      # 1. Descargar el codigo del repo
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      # 2. Instalar Python 3.11
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"  # Cachea dependencias entre ejecuciones (mas rapido)
+          cache-dependency-path: scraper/requirements.txt
+
+      # 3. Instalar librerias Python
+      - name: Instalar dependencias
+        run: pip install -r scraper/requirements.txt
+
+      # 4. Instalar el navegador Chromium para Playwright
+      - name: Instalar Chromium
+        run: playwright install chromium --with-deps
+
+      # 5. Ejecutar el scraper
+      - name: Ejecutar scraper
+        run: python scraper/scraper.py
+
+      # 6. Hacer commit de los datos actualizados y push
+      - name: Commit y push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/apartments.json
+          # Solo commitea si hay cambios reales en el JSON
+          if git diff --staged --quiet; then
+            echo "Sin cambios. Nada que commitear."
+          else
+            git commit -m "chore: actualizar apartamentos $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git push
+          fi</code></pre>
+  </div>
+
+  <h3>Cron syntax</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">cron format</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-text">   ┌─ minuto (0-59)
+   │  ┌─ hora (0-23, UTC)
+   │  │  ┌─ dia del mes (1-31)
+   │  │  │  ┌─ mes (1-12)
+   │  │  │  │  ┌─ dia de la semana (0=Dom, 6=Sab)
+   │  │  │  │  │
+"  0  11  *  *  *  "   →  Todos los dias a las 11:00 UTC (8:00 Uruguay)</code></pre>
+  </div>
+
+  <h3>Habilitar permisos de escritura</h3>
+  <p>Por defecto, GitHub Actions solo tiene permiso de lectura. Para que pueda hacer push, hay que habilitarlo:</p>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <p>Ir a tu repositorio en GitHub</p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <p><strong>Settings → Actions → General</strong></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <p>En "Workflow permissions" seleccionar <strong>"Read and write permissions"</strong></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-content">
+        <p>Guardar cambios</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>Ejecutar manualmente</h3>
+  <p>Ademas del cron, podemos disparar el workflow a mano:</p>
+  <ol>
+    <li>Ir al repositorio en GitHub</li>
+    <li>Click en <strong>"Actions"</strong></li>
+    <li>Seleccionar el workflow "Actualizar apartamentos"</li>
+    <li>Click en <strong>"Run workflow"</strong></li>
+  </ol>
+  <p>Esto es util para forzar una actualizacion sin esperar al cron, o para probar que el workflow funciona.</p>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 9 ══ -->
+<section class="chapter" id="ch9">
+  <div class="chapter-header">
+    <div class="chapter-num">9</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Deploy</div>
+      <h2>GitHub Pages: hosting gratuito</h2>
+    </div>
+  </div>
+
+  <p>
+    GitHub Pages sirve archivos estaticos directamente desde tu repositorio.
+    No hay servidor que mantener, no hay costo, HTTPS incluido, y el deploy es automatico
+    con cada push a main.
+  </p>
+
+  <h3>Como funciona</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+graph LR
+    A["git push"] --> B["GitHub repo<br/>(main branch)"]
+    B --> C["GitHub Pages CDN"]
+    C --> D["https://TU_USUARIO.github.io/inversiones"]
+    style A fill:#1e293b,stroke:#475569,color:#94a3b8
+    style B fill:#312e81,stroke:#6366f1,color:#e0e7ff
+    style C fill:#064e3b,stroke:#10b981,color:#a7f3d0
+    style D fill:#1e293b,stroke:#475569,color:#94a3b8
+    </div>
+  </div>
+
+  <h3>Configurar GitHub Pages</h3>
+  <div class="steps">
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-content">
+        <h4>Subir el proyecto</h4>
+        <div class="code-block">
+          <div class="code-block-header">
+            <span class="code-block-filename">terminal</span>
+            <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+          </div>
+          <pre><code class="language-bash">git add .
+git commit -m "init: proyecto inversiones"
+git push origin main</code></pre>
+        </div>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-content">
+        <h4>Habilitar Pages</h4>
+        <p>En tu repositorio: <strong>Settings → Pages → Source → "Deploy from a branch"</strong></p>
+        <p>Branch: <code>main</code> / Folder: <code>/ (root)</code></p>
+      </div>
+    </div>
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-content">
+        <h4>Acceder al dashboard</h4>
+        <p>En 1-2 minutos la web estara disponible en:</p>
+        <code>https://TU_USUARIO.github.io/inversiones</code>
+      </div>
+    </div>
+  </div>
+
+  <h3>El archivo .nojekyll</h3>
+  <p>
+    Por defecto, GitHub Pages procesa el repo con Jekyll (un generador de sitios estaticos).
+    Esto puede causar problemas con carpetas que empiezan con <code>_</code> (como <code>_next</code>).
+    Para deshabilitarlo, creamos un archivo vacio:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash">touch .nojekyll
+git add .nojekyll
+git commit -m "chore: disable jekyll"
+git push</code></pre>
+  </div>
+
+  <h3>Ciclo de vida completo</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+sequenceDiagram
+    participant GHA as GitHub Actions (cron 8am)
+    participant REPO as Repositorio (main)
+    participant PAGES as GitHub Pages CDN
+    participant USER as Usuario
+
+    GHA->>GHA: Ejecuta scraper.py
+    GHA->>REPO: git push data/apartments.json
+    REPO->>PAGES: Deploy automatico (1-2 min)
+    USER->>PAGES: Abre el dashboard
+    PAGES-->>USER: Sirve index.html + app.js
+    USER->>PAGES: fetch() apartments.json
+    PAGES-->>USER: Datos del dia
+    </div>
+  </div>
+
+  <h3>Checklist final</h3>
+  <div class="callout tip">
+    <div class="callout-icon">&#9989;</div>
+    <div class="callout-body">
+      <strong>Verificacion de que todo funciona</strong>
+      <ul style="margin-top: 8px; padding-left: 20px;">
+        <li>El scraper corre localmente con <code>--test</code> sin errores</li>
+        <li>El JSON se genera en <code>data/apartments.json</code></li>
+        <li>El dashboard muestra datos en <code>http://localhost:8080</code></li>
+        <li>El workflow de GitHub Actions completa exitosamente (verde)</li>
+        <li>El dashboard en <code>github.io</code> muestra los datos actualizados</li>
+        <li>El cron ejecuta diariamente (revisar en Actions al dia siguiente)</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>Posibles extensiones</h3>
+  <p>Una vez que el proyecto base funciona, hay muchas direcciones para expandirlo:</p>
+  <ul>
+    <li><strong>Agregar mas fuentes:</strong> Infocasas, Gallito, OLX — mismo patron de scraper</li>
+    <li><strong>Historico de precios:</strong> En vez de sobreescribir el JSON, appendear datos con fecha</li>
+    <li><strong>Notificaciones:</strong> Un step en el workflow que manda un email si aparece un apto con score > 80</li>
+    <li><strong>ML para predecir precio:</strong> Con suficiente historico, entrenar un modelo de regresion</li>
+    <li><strong>Alertas en tiempo real:</strong> Webhook a Telegram o Slack cuando se encuentra una oportunidad</li>
+  </ul>
+
+  <div class="highlight-box">
+    <h4>Felicitaciones</h4>
+    <p style="color: var(--muted);">
+      Construiste un sistema completo de extremo a extremo: extraccion de datos con un navegador real,
+      procesamiento asincrono paralelo, calculo de metricas financieras, visualizacion interactiva,
+      y actualizacion automatica diaria. Todas tecnicas usadas en produccion en la industria.
+    </p>
+  </div>
+</section>
+
+</main>
+</div>
+
+<script>
+  // Mermaid
+  mermaid.initialize({
+    theme: 'dark',
+    themeVariables: {
+      background: '#1e293b',
+      primaryColor: '#312e81',
+      primaryTextColor: '#e0e7ff',
+      primaryBorderColor: '#6366f1',
+      lineColor: '#475569',
+      secondaryColor: '#064e3b',
+      tertiaryColor: '#1e3a5f',
+    }
+  });
+
+  // Reading progress bar
+  window.addEventListener('scroll', () => {
+    const scrollTop = window.scrollY;
+    const docHeight = document.body.scrollHeight - window.innerHeight;
+    const progress = (scrollTop / docHeight) * 100;
+    document.getElementById('progress').style.width = progress + '%';
+  });
+
+  // Active nav link on scroll
+  const sections = document.querySelectorAll('.chapter');
+  const navLinks = document.querySelectorAll('.nav-link');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => link.classList.remove('active'));
+        const id = entry.target.id;
+        const active = document.querySelector(`.nav-link[href="#${id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { threshold: 0.25 });
+
+  sections.forEach(s => observer.observe(s));
+
+  // Copy code button
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    navigator.clipboard.writeText(pre.innerText).then(() => {
+      btn.textContent = 'Copiado!';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = 'Copiar';
+        btn.classList.remove('copied');
+      }, 2000);
+    });
+  }
+
+  // Mobile sidebar toggle
+  function toggleSidebar() {
+    document.getElementById('sidebar').classList.toggle('open');
+  }
+</script>
+</body>
+</html>
