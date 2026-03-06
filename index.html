@@ -30,21 +30,31 @@
   <aside class="filters">
     <h2>Filtros</h2>
 
-    <!-- Precio maximo -->
+    <!-- Precio -->
     <div class="filter-section">
-      <span class="filter-label">Precio maximo</span>
-      <div class="range-row">
-        <input type="range" id="price-max" min="30000" max="88000" step="1000" value="88000" />
-        <span class="range-val" id="price-max-val">U$S 88,000</span>
+      <span class="filter-label">Precio</span>
+      <div class="dual-range-wrap">
+        <div class="dual-track"><div class="dual-fill" id="price-fill"></div></div>
+        <input type="range" class="dual-input" id="price-min" min="60000" max="98000" step="1000" value="60000" />
+        <input type="range" class="dual-input" id="price-max" min="60000" max="98000" step="1000" value="98000" />
+      </div>
+      <div class="dual-vals">
+        <span id="price-min-val">U$S 60,000</span>
+        <span id="price-max-val">U$S 98,000</span>
       </div>
     </div>
 
-    <!-- Rentabilidad minima -->
+    <!-- Rentabilidad -->
     <div class="filter-section">
-      <span class="filter-label">Rentabilidad anual minima</span>
-      <div class="range-row">
-        <input type="range" id="rent-min" min="0" max="15" step="0.5" value="0" />
-        <span class="range-val" id="rent-min-val">0%</span>
+      <span class="filter-label">Rentabilidad anual</span>
+      <div class="dual-range-wrap">
+        <div class="dual-track"><div class="dual-fill" id="rent-fill"></div></div>
+        <input type="range" class="dual-input" id="rent-min" min="0" max="15" step="0.5" value="0" />
+        <input type="range" class="dual-input" id="rent-max" min="0" max="15" step="0.5" value="15" />
+      </div>
+      <div class="dual-vals">
+        <span id="rent-min-val">0%</span>
+        <span id="rent-max-val">15%</span>
       </div>
     </div>
 
@@ -52,11 +62,11 @@
     <div class="filter-section">
       <span class="filter-label">Gastos comunes maximos</span>
       <div class="range-row">
-        <input type="range" id="ggcc-max" min="0" max="500" step="10" value="500" />
-        <span class="range-val" id="ggcc-max-val">U$S 500/mes</span>
+        <input type="range" id="ggcc-max" min="0" max="30000" step="500" value="30000" />
+        <span class="range-val" id="ggcc-max-val">$U 30.000/mes</span>
       </div>
       <div class="toggle-row">
-        <span class="toggle-label">Incluir apartamentos sin dato de GGCC</span>
+        <span class="toggle-label">Incluir sin dato de GGCC</span>
         <label class="toggle">
           <input type="checkbox" id="ggcc-unknown" checked />
           <span class="toggle-slider"></span>
@@ -82,8 +92,23 @@
     <!-- Zonas -->
     <div class="filter-section">
       <span class="filter-label">Zonas</span>
-      <div id="zone-checkboxes" class="checkbox-group">
-        <!-- Generado dinamicamente por app.js -->
+      <div class="checkbox-group">
+        <div class="checkbox-item">
+          <input type="checkbox" class="zone-cb" id="zone-buceo" value="buceo" checked />
+          <label for="zone-buceo">Buceo</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" class="zone-cb" id="zone-malvin" value="malvin" checked />
+          <label for="zone-malvin">Malvín</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" class="zone-cb" id="zone-cordon" value="cordon" checked />
+          <label for="zone-cordon">Cordón</label>
+        </div>
+        <div class="checkbox-item">
+          <input type="checkbox" class="zone-cb" id="zone-carrasco" value="carrasco" checked />
+          <label for="zone-carrasco">Carrasco</label>
+        </div>
       </div>
     </div>
 

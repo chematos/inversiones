@@ -1,40 +1,55 @@
 #!/usr/bin/env python3
 """
-Scraper de apartamentos en Montevideo para inversion inmobiliaria.
-Fuente: MercadoLibre Uruguay (via Playwright - renderizado JS)
+Scraper híbrido de apartamentos en Montevideo para inversión inmobiliaria.
+
+  Búsqueda : MercadoLibre API REST  (sin browser, rápido)
+  Detalles : Playwright async       (gastos comunes, días en mercado)
 
 Uso:
   python scraper.py          # scrape completo
-  python scraper.py --test   # solo 1 pagina + 3 detalles (para probar)
+  python scraper.py --test   # primeros 10 listados, 3 detalles
+
+Variables de entorno requeridas:
+  ML_CLIENT_ID
+  ML_CLIENT_SECRET
 """
 
+import asyncio
 import json
-import time
+import os
 import re
-import random
 import logging
 import sys
+import random
 from datetime import datetime
 from pathlib import Path
 
-from playwright.sync_api import sync_playwright, Page
+import requests
 from bs4 import BeautifulSoup
+from playwright.async_api import async_playwright, BrowserContext
 
-# ─── Configuracion ────────────────────────────────────────────────────────────
+# ─── Configuración ────────────────────────────────────────────────────────────
 
+MIN_PRICE_USD = 60_000
 MAX_PRICE_USD = 98_000
+CONCURRENCY   = 6       # páginas de detalle en paralelo
 
-# Zonas permitidas (whitelist). Solo pasan apartamentos en estas zonas.
-ALLOWED_ZONES = {"malvin", "malvín", "cordon", "cordón", "carrasco", "buceo"}
+# Zonas permitidas (claves normalizadas sin tildes)
+ALLOWED_ZONES = {"buceo", "malvin", "cordon", "carrasco"}
 
-# Estimacion de alquiler mensual en USD para 1 dormitorio por zona (2025-2026)
-ZONE_RENT_USD = {
-    "carrasco": 950,
-    "buceo": 640,
-    "malvin": 600, "malvín": 600,
-    "cordon": 530, "cordón": 530,
+# Alquiler mensual estimado en UYU — 1 dormitorio / monoambiente (2025-2026)
+ZONE_RENT_UYU = {
+    "carrasco": 38_000,
+    "buceo":    25_000,
+    "malvin":   23_000,
+    "cordon":   21_000,
 }
-DEFAULT_RENT_USD = 600
+DEFAULT_RENT_UYU = 23_000
+
+# MercadoLibre API
+ML_SITE     = "MLU"
+ML_BASE_URL = "https://api.mercadolibre.com"
+ML_CATEGORY = "MLU1459"   # Apartamentos en Uruguay
 
 DATA_PATH = Path(__file__).parent.parent / "data" / "apartments.json"
 TEST_MODE = "--test" in sys.argv
@@ -46,7 +61,7 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-# ─── Utilidades ──────────────────────────────────────────────────────────────
+# ─── Utilidades ───────────────────────────────────────────────────────────────
 
 def normalize(text: str) -> str:
     return (
@@ -56,261 +71,209 @@ def normalize(text: str) -> str:
     )
 
 
-def is_allowed_zone(zone_str: str) -> bool:
-    norm = normalize(zone_str)
-    for allowed in ALLOWED_ZONES:
-        if normalize(allowed) in norm or norm in normalize(allowed):
-            return True
-    return False
-
-
-def estimate_rent(zone_str: str) -> int:
-    norm = normalize(zone_str)
-    for zone, rent in ZONE_RENT_USD.items():
-        if normalize(zone) in norm or norm in normalize(zone):
-            return rent
-    return DEFAULT_RENT_USD
-
-
-def calculate_score(rentability_pct: float) -> int:
-    """Score 0-100. 10% anual = 100 puntos."""
-    return min(100, max(0, round(rentability_pct * 10)))
-
-
-def parse_days_on_market(html_content: str) -> int | None:
-    """Extrae dias en mercado del contenido HTML de la pagina de detalle."""
-    patterns = [
-        (r"[Pp]ublicado hoy", 1),
-        (r"[Pp]ublicado esta semana", 4),
-        (r"[Pp]ublicado hace (\d+) d[ií]a", None),
-        (r"[Pp]ublicado hace (\d+) semana", 7),
-        (r"[Pp]ublicado hace (\d+) mes", 30),
-    ]
-    for pattern, fixed_days in patterns:
-        m = re.search(pattern, html_content, re.IGNORECASE)
-        if m:
-            if fixed_days is not None:
-                return fixed_days
-            return int(m.group(1)) * (7 if "semana" in pattern else 30 if "mes" in pattern else 1)
+def zone_key(name: str) -> str | None:
+    """Devuelve la clave de zona normalizada o None si no está en nuestra lista."""
+    n = normalize(name)
+    for z in ALLOWED_ZONES:
+        if z in n or n in z:
+            return z
     return None
 
 
-# ─── Playwright helpers ──────────────────────────────────────────────────────
-
-def new_browser_context(playwright):
-    browser = playwright.chromium.launch(headless=True)
-    ctx = browser.new_context(
-        user_agent=(
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
-        ),
-        locale="es-UY",
-    )
-    return browser, ctx
+def rent_uyu(zone: str) -> int:
+    return ZONE_RENT_UYU.get(zone, DEFAULT_RENT_UYU)
 
 
-def safe_goto(page: Page, url: str, retries: int = 2) -> bool:
-    for attempt in range(retries):
-        try:
-            page.goto(url, wait_until="networkidle", timeout=60000)
-            return True
-        except Exception as e:
-            log.warning(f"  Intento {attempt+1} fallido ({url[:60]}): timeout o error de red")
-            time.sleep(random.uniform(4, 8))
-    return False
+def calculate_score(rentability_pct: float) -> int:
+    return min(100, max(0, round(rentability_pct * 10)))
 
 
-# ─── Scraper de listados de busqueda ────────────────────────────────────────
-
-ML_BASE = "https://listado.mercadolibre.com.uy/inmuebles/apartamentos/venta/propiedades-individuales/montevideo"
-
-# Slug de barrio en la URL de ML para cada zona permitida
-ZONE_SLUGS = {
-    "Buceo": "buceo",
-    "Malvín": "malvin",
-    "Cordón": "cordon",
-    "Carrasco": "carrasco",
-}
-
-
-def zone_url(zone_slug: str, offset: int = 0) -> str:
-    suffix = f"_OrderId_PRICE_PriceRange_0USD-{MAX_PRICE_USD}USD_NoIndex_True"
-    if offset > 0:
-        return f"{ML_BASE}/{zone_slug}/_Desde_{offset}{suffix}"
-    return f"{ML_BASE}/{zone_slug}/{suffix}"
-
-
-def parse_search_page(html: str) -> tuple[list[dict], dict]:
-    """Extrae listados basicos de una pagina de resultados.
-    Devuelve (listados_validos, stats) donde stats tiene conteos de cada filtro."""
-    soup = BeautifulSoup(html, "lxml")
-    results = []
-    stats = {"total": 0, "sin_link": 0, "sin_precio": 0, "precio_alto": 0, "zona_no_permitida": 0, "ok": 0}
-
-    # Items de resultado (excluir billboards/anuncios que tienen --intervention)
-    items = [
-        li for li in soup.find_all("li", class_="ui-search-layout__item")
-        if "intervention" not in " ".join(li.get("class", []))
+def parse_days_on_market(html: str) -> int | None:
+    patterns = [
+        (r"[Pp]ublicado hoy",                1),
+        (r"[Pp]ublicado esta semana",         4),
+        (r"[Pp]ublicado hace (\d+) d[ií]a",  None),
+        (r"[Pp]ublicado hace (\d+) semana",   None),
+        (r"[Pp]ublicado hace (\d+) mes",      None),
     ]
-    stats["total"] = len(items)
+    for pattern, fixed in patterns:
+        m = re.search(pattern, html, re.IGNORECASE)
+        if m:
+            if fixed is not None:
+                return fixed
+            n = int(m.group(1))
+            if "semana" in pattern: return n * 7
+            if "mes"    in pattern: return n * 30
+            return n
+    return None
 
-    for item in items:
+
+# ─── Tipo de cambio ───────────────────────────────────────────────────────────
+
+def fetch_tc() -> float:
+    """Obtiene tipo de cambio USD→UYU desde open.er-api.com (sin API key)."""
+    try:
+        r = requests.get("https://open.er-api.com/v6/latest/USD", timeout=10)
+        r.raise_for_status()
+        tc = r.json()["rates"]["UYU"]
+        log.info(f"Tipo de cambio USD/UYU: {tc:.2f}")
+        return tc
+    except Exception as e:
+        log.warning(f"No se pudo obtener TC ({e}). Usando valor por defecto: 42.")
+        return 42.0
+
+
+# ─── Autenticación ML API ─────────────────────────────────────────────────────
+
+def get_ml_token() -> str:
+    client_id     = os.environ["ML_CLIENT_ID"]
+    client_secret = os.environ["ML_CLIENT_SECRET"]
+    resp = requests.post(
+        f"{ML_BASE_URL}/oauth/token",
+        data={
+            "grant_type":    "client_credentials",
+            "client_id":     client_id,
+            "client_secret": client_secret,
+        },
+        timeout=15,
+    )
+    resp.raise_for_status()
+    log.info("Token ML obtenido correctamente.")
+    return resp.json()["access_token"]
+
+
+# ─── Búsqueda via ML API ──────────────────────────────────────────────────────
+
+def _attr_val(attributes: list, attr_id: str) -> str | None:
+    for a in attributes:
+        if a.get("id") == attr_id:
+            return a.get("value_name")
+    return None
+
+
+def _search_page(token: str, offset: int, limit: int) -> dict:
+    resp = requests.get(
+        f"{ML_BASE_URL}/sites/{ML_SITE}/search",
+        headers={"Authorization": f"Bearer {token}"},
+        params={
+            "category":   ML_CATEGORY,
+            "price_from": MIN_PRICE_USD,
+            "price_to":   MAX_PRICE_USD,
+            "currency_id": "USD",
+            "state_id":   "UY-MO",
+            "limit":      limit,
+            "offset":     offset,
+        },
+        timeout=20,
+    )
+    resp.raise_for_status()
+    return resp.json()
+
+
+def fetch_all_listings(token: str) -> list[dict]:
+    """Pagina la API y devuelve todos los listados en nuestras zonas y rango de precio."""
+    listings  = []
+    seen_ids  = set()
+    offset    = 0
+    limit     = 50
+    max_pages = 2 if TEST_MODE else 999
+
+    for page_num in range(max_pages):
+        log.info(f"API búsqueda — offset={offset}")
         try:
-            # URL: limpiar query params y fragment (#tracking_id=...)
-            link = item.find("a", href=re.compile(r"mercadolibre\.com\.uy"))
-            if not link:
-                stats["sin_link"] += 1
+            data = _search_page(token, offset=offset, limit=limit)
+        except Exception as e:
+            log.error(f"Error en búsqueda API: {e}")
+            break
+
+        results = data.get("results", [])
+        total   = data.get("paging", {}).get("total", 0)
+        log.info(f"  {len(results)} resultados (total disponible en ML: {total})")
+
+        if not results:
+            break
+
+        skipped_zone = 0
+        for item in results:
+            item_id = item.get("id", "")
+            if item_id in seen_ids:
                 continue
-            url = link["href"].split("?")[0].split("#")[0]
+            seen_ids.add(item_id)
 
-            # Precio: extraer del aria-label (ej: "82000 dólares")
-            price_span = item.find(attrs={"aria-label": re.compile(r"\d+\s+dólares", re.IGNORECASE)})
-            if not price_span:
-                stats["sin_precio"] += 1
-                continue
-            price_match = re.search(r"(\d[\d.]*)\s+dólares", price_span["aria-label"], re.IGNORECASE)
-            if not price_match:
-                stats["sin_precio"] += 1
-                continue
-            price = float(price_match.group(1).replace(".", ""))
-            if price > MAX_PRICE_USD:
-                stats["precio_alto"] += 1
+            # Precio (ya filtrado por API, pero verificamos)
+            price = item.get("price") or 0
+            if not (MIN_PRICE_USD <= price <= MAX_PRICE_USD):
                 continue
 
-            # Ubicacion
-            loc_el = item.find(class_="poly-component__location")
-            location = loc_el.get_text(strip=True) if loc_el else ""
-
-            # Zona: preferir andes-tag__label (barrio explícito en la tarjeta),
-            # si no, buscar en cada segmento de la dirección
-            zone = "Desconocida"
-            tag_el = item.find(class_="andes-tag__label")
-            if tag_el:
-                tag_text = tag_el.get_text(strip=True)
-                if is_allowed_zone(tag_text):
-                    zone = tag_text
-            if zone == "Desconocida":
-                for part in [p.strip() for p in location.split(",")]:
-                    if is_allowed_zone(part):
-                        zone = part
-                        break
-
-            if zone == "Desconocida":
-                stats["zona_no_permitida"] += 1
+            # Zona
+            loc = item.get("location") or {}
+            nb_name = (loc.get("neighborhood") or {}).get("name", "")
+            zk = zone_key(nb_name)
+            if not zk:
+                skipped_zone += 1
                 continue
-            stats["ok"] += 1
 
-            # Titulo
-            title_el = item.find(class_="poly-component__title")
-            title = title_el.get_text(strip=True) if title_el else "Sin titulo"
-
-            # Atributos (dormitorios, m²)
-            attr_items = item.find_all(class_="poly-attributes_list__item")
-            attrs = [a.get_text(strip=True) for a in attr_items]
-            rooms_text = next((a for a in attrs if "dormitorio" in a.lower() or "monoambiente" in a.lower()), "")
+            # Atributos
+            attrs     = item.get("attributes", [])
+            rooms_val = _attr_val(attrs, "BEDROOM_ROOMS") or _attr_val(attrs, "ROOMS")
+            m2_raw    = _attr_val(attrs, "TOTAL_AREA") or _attr_val(attrs, "COVERED_AREA")
             m2 = None
-            for a in attrs:
-                m = re.search(r"(\d+)\s*m²", a, re.IGNORECASE)
+            if m2_raw:
+                m = re.search(r"(\d+)", m2_raw)
                 if m:
                     m2 = int(m.group(1))
-                    break
 
-            # Imagen
-            img = item.find("img", src=re.compile(r"http"))
-            thumbnail = img["src"] if img else None
+            thumbnail = (item.get("thumbnail") or "").replace("http://", "https://")
 
-            results.append({
-                "url": url,
-                "title": title,
+            listings.append({
+                "id":        item_id,
+                "title":     item.get("title", ""),
                 "price_usd": price,
-                "m2": m2,
-                "rooms": rooms_text,
-                "zone": zone,
-                "location": location,
+                "m2":        m2,
+                "rooms":     rooms_val or "",
+                "zone_key":  zk,
+                "zone":      nb_name,
+                "location":  loc.get("address_line", nb_name),
                 "thumbnail": thumbnail,
+                "url":       item.get("permalink", ""),
             })
 
-        except Exception as e:
-            log.debug(f"  Error parseando item: {e}")
-
-    return results, stats
-
-
-def scrape_zone(page: Page, zone_name: str, zone_slug: str, seen_urls: set, max_pages: int) -> list[dict]:
-    """Scrapea todas las paginas de una zona y devuelve listados basicos."""
-    zone_listings = []
-    offset = 0
-    pg = 1
-
-    log.info(f"[ML] Zona: {zone_name}")
-
-    while pg <= max_pages:
-        url = zone_url(zone_slug, offset)
-        log.info(f"  Pagina {pg}: {url}")
-
-        if not safe_goto(page, url):
-            log.warning(f"  No se pudo cargar pagina {pg}. Saltando.")
-            break
-
-        listings, stats = parse_search_page(page.content())
-        new = [l for l in listings if l["url"] not in seen_urls]
-        for l in new:
-            seen_urls.add(l["url"])
-        zone_listings.extend(new)
         log.info(
-            f"  {stats['total']} items | "
-            f"sin_precio={stats['sin_precio']} precio_alto={stats['precio_alto']} "
-            f"zona_off={stats['zona_no_permitida']} | "
-            f"validos={len(new)} (acum zona: {len(zone_listings)})"
+            f"  En nuestras zonas: {len(listings)} acumulado | "
+            f"fuera de zona ignorados: {skipped_zone}"
         )
 
-        soup = BeautifulSoup(page.content(), "lxml")
-        next_btn = soup.find(class_=re.compile(r"andes-pagination__button--next"))
-        if not next_btn or next_btn.get("disabled"):
-            log.info("  Ultima pagina de la zona.")
+        offset += limit
+        if offset >= total:
+            log.info("  Fin de resultados disponibles.")
             break
 
-        offset = pg * 48 + 1
-        pg += 1
-        time.sleep(random.uniform(1.5, 3))
-
-    return zone_listings
+    log.info(f"Total listados válidos de API: {len(listings)}")
+    return listings
 
 
-def scrape_listings(page: Page) -> list[dict]:
-    """Scrapea todas las zonas y devuelve listados basicos deduplicados."""
-    all_listings = []
-    seen_urls = set()
-    max_pages = 1 if TEST_MODE else 20
+# ─── Detalle via Playwright (async, paralelo) ─────────────────────────────────
 
-    for zone_name, zone_slug in ZONE_SLUGS.items():
-        zone_listings = scrape_zone(page, zone_name, zone_slug, seen_urls, max_pages)
-        all_listings.extend(zone_listings)
-        time.sleep(random.uniform(2, 4))
-
-    return all_listings
-
-
-# ─── Scraper de pagina de detalle ────────────────────────────────────────────
-
-def scrape_detail(page: Page, url: str) -> dict:
-    """Visita la pagina de detalle y extrae specs: GGCC, m², dormitorios, dias."""
+async def _scrape_detail(semaphore: asyncio.Semaphore, ctx: BrowserContext, url: str) -> dict:
     result = {
-        "gastos_comunes_usd": None,
-        "gastos_comunes_raw": None,
-        "gastos_comunes_currency": None,
-        "days_on_market": None,
-        "m2_detail": None,
-        "rooms_detail": None,
+        "gastos_comunes_uyu": None,
+        "days_on_market":     None,
+        "m2_detail":          None,
+        "rooms_detail":       None,
     }
 
-    if not safe_goto(page, url):
-        return result
+    async with semaphore:
+        page = await ctx.new_page()
+        try:
+            await page.goto(url, wait_until="networkidle", timeout=60_000)
+            html = await page.content()
+        except Exception as e:
+            log.warning(f"  Timeout/error: {url[:60]} — {e}")
+            await page.close()
+            return result
+        await page.close()
 
-    html = page.content()
     soup = BeautifulSoup(html, "lxml")
-
-    # Specs desde la tabla andes-table
     table = soup.find(class_=re.compile(r"andes-table"))
     if table:
         for row in table.find_all("tr"):
@@ -321,13 +284,12 @@ def scrape_detail(page: Page, url: str) -> dict:
             val = cells[1].get_text(strip=True)
 
             if "gastos comunes" in key:
-                # Los gastos comunes en Uruguay siempre estan en UYU
+                # Siempre en UYU en Uruguay
                 m = re.search(r"(\d[\d.,]*)", val)
                 if m:
-                    amount = float(m.group(1).replace(".", "").replace(",", "."))
-                    result["gastos_comunes_raw"] = amount
-                    result["gastos_comunes_currency"] = "UYU"
-                    result["gastos_comunes_usd"] = round(amount / 42)
+                    result["gastos_comunes_uyu"] = round(
+                        float(m.group(1).replace(".", "").replace(",", "."))
+                    )
 
             elif key in ("area privada", "superficie total", "superficie cubierta"):
                 if not result["m2_detail"]:
@@ -339,92 +301,119 @@ def scrape_detail(page: Page, url: str) -> dict:
                 if val.strip() and val.strip() != "0":
                     result["rooms_detail"] = f"{val} dormitorio(s)"
 
-    # Dias en mercado
     result["days_on_market"] = parse_days_on_market(html)
-
     return result
 
 
-# ─── Pipeline principal ──────────────────────────────────────────────────────
+async def scrape_all_details(listings: list[dict]) -> list[dict]:
+    semaphore = asyncio.Semaphore(CONCURRENCY)
+    details   = [None] * len(listings)
 
-def build_apartment(basic: dict, detail: dict) -> dict:
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=True)
+        ctx     = await browser.new_context(
+            user_agent=(
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            ),
+            locale="es-UY",
+        )
+
+        async def fetch(i: int, listing: dict):
+            log.info(
+                f"  [{i+1}/{len(listings)}] {listing['zone']:<12} "
+                f"U$S {listing['price_usd']:,.0f} | {listing['title'][:45]}"
+            )
+            details[i] = await _scrape_detail(semaphore, ctx, listing["url"])
+
+        await asyncio.gather(*[fetch(i, l) for i, l in enumerate(listings)])
+        await browser.close()
+
+    return details
+
+
+# ─── Ensamble final ───────────────────────────────────────────────────────────
+
+def build_apartment(basic: dict, detail: dict, tc: float) -> dict:
     price = basic["price_usd"]
-    m2 = detail.get("m2_detail") or basic.get("m2")
+    zone  = basic["zone_key"]
+    m2    = detail.get("m2_detail") or basic.get("m2")
     rooms = detail.get("rooms_detail") or basic.get("rooms", "")
-    zone = basic["zone"]
 
-    estimated_rent = estimate_rent(zone)
-    rentability_pct = round((estimated_rent * 12) / price * 100, 2) if price else 0
-    price_per_m2 = round(price / m2) if (m2 and m2 > 0) else None
-    score = calculate_score(rentability_pct)
-
-    apt_id_match = re.search(r"MLU[-_]?(\d+)", basic["url"])
-    apt_id = f"MLU-{apt_id_match.group(1)}" if apt_id_match else basic["url"][-20:]
+    r_uyu         = rent_uyu(zone)
+    r_usd         = round(r_uyu / tc)
+    rentability   = round((r_uyu * 12) / (price * tc) * 100, 2) if price else 0
+    score         = calculate_score(rentability)
+    price_per_m2  = round(price / m2) if (m2 and m2 > 0) else None
 
     return {
-        "id": apt_id,
-        "title": basic["title"],
-        "price_usd": price,
-        "m2": m2,
-        "price_per_m2": price_per_m2,
-        "rooms": rooms,
-        "zone": zone,
-        "location": basic.get("location", zone),
-        "gastos_comunes_usd": detail.get("gastos_comunes_usd"),
-        "gastos_comunes_raw": detail.get("gastos_comunes_raw"),
-        "gastos_comunes_currency": detail.get("gastos_comunes_currency"),
-        "estimated_rent_usd": estimated_rent,
-        "rentability_pct": rentability_pct,
-        "score": score,
-        "days_on_market": detail.get("days_on_market"),
-        "url": basic["url"],
-        "thumbnail": basic.get("thumbnail"),
-        "source": "mercadolibre",
-        "scraped_at": datetime.utcnow().isoformat() + "Z",
+        "id":                 basic["id"],
+        "title":              basic["title"],
+        "price_usd":          price,
+        "m2":                 m2,
+        "price_per_m2":       price_per_m2,
+        "rooms":              rooms,
+        "zone":               basic["zone"],
+        "location":           basic.get("location", basic["zone"]),
+        "gastos_comunes_uyu": detail.get("gastos_comunes_uyu"),
+        "estimated_rent_uyu": r_uyu,
+        "estimated_rent_usd": r_usd,
+        "rentability_pct":    rentability,
+        "score":              score,
+        "days_on_market":     detail.get("days_on_market"),
+        "url":                basic["url"],
+        "thumbnail":          basic.get("thumbnail"),
+        "source":             "mercadolibre_api",
+        "scraped_at":         datetime.utcnow().isoformat() + "Z",
     }
 
 
-def run():
+# ─── Guardar ──────────────────────────────────────────────────────────────────
+
+def save_results(apartments: list):
+    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
+    output = {
+        "last_updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "total":        len(apartments),
+        "max_price_usd": MAX_PRICE_USD,
+        "apartments":   apartments,
+    }
+    with open(DATA_PATH, "w", encoding="utf-8") as f:
+        json.dump(output, f, ensure_ascii=False, indent=2)
+    log.info(f"Guardado: {DATA_PATH} ({len(apartments)} apartamentos)")
+
+
+# ─── Entry point ──────────────────────────────────────────────────────────────
+
+async def main():
     if TEST_MODE:
-        log.info("=== MODO TEST (pocas paginas y detalles) ===")
-    log.info("=== Scraper Inversiones Montevideo ===")
-    log.info(f"Precio maximo: U$S {MAX_PRICE_USD:,} | Zonas: {', '.join(sorted(ALLOWED_ZONES))}")
+        log.info("=== MODO TEST (2 páginas API, 3 detalles) ===")
+    log.info("=== Scraper Inversiones Montevideo (API + Playwright) ===")
 
-    with sync_playwright() as p:
-        browser, ctx = new_browser_context(p)
-        page = ctx.new_page()
+    # 1. Tipo de cambio
+    tc = fetch_tc()
 
-        # 1. Scrape de listados basicos
-        basic_listings = scrape_listings(page)
-        log.info(f"\nTotal listados validos encontrados: {len(basic_listings)}")
+    # 2. Token ML
+    token = get_ml_token()
 
-        if not basic_listings:
-            log.error("No se encontraron listados. Verifica la conexion o los selectores.")
-            browser.close()
-            save_results([])
-            return
+    # 3. Búsqueda via API
+    listings = fetch_all_listings(token)
+    if not listings:
+        log.error("Sin resultados. Verifica el token, la categoría ML o los filtros.")
+        save_results([])
+        return
 
-        # 2. Visitar cada detalle
-        apartments = []
-        limit = 3 if TEST_MODE else len(basic_listings)
-        log.info(f"Obteniendo detalles de {min(limit, len(basic_listings))} listados...")
+    # 4. Detalles via Playwright (async + paralelo)
+    limit  = 3 if TEST_MODE else len(listings)
+    subset = listings[:limit]
+    log.info(f"Obteniendo detalles de {len(subset)} apartamentos (CONCURRENCY={CONCURRENCY})...")
+    details = await scrape_all_details(subset)
 
-        for i, basic in enumerate(basic_listings[:limit]):
-            log.info(
-                f"  [{i+1}/{min(limit, len(basic_listings))}] "
-                f"{basic['zone']} | U$S {basic['price_usd']:,.0f} | {basic['title'][:50]}"
-            )
-            detail = scrape_detail(page, basic["url"])
-            apt = build_apartment(basic, detail)
-            apartments.append(apt)
-            time.sleep(random.uniform(1, 2.5))
-
-        browser.close()
-
-    # 3. Ordenar por score
+    # 5. Ensamblar
+    apartments = [build_apartment(b, d, tc) for b, d in zip(subset, details)]
     apartments.sort(key=lambda x: x["score"], reverse=True)
 
-    log.info(f"\n=== Resultado final: {len(apartments)} apartamentos ===")
+    log.info(f"\n=== {len(apartments)} apartamentos ===")
     for apt in apartments[:5]:
         log.info(
             f"  Score {apt['score']:3d} | {apt['zone']:<12} | "
@@ -434,18 +423,5 @@ def run():
     save_results(apartments)
 
 
-def save_results(apartments: list):
-    DATA_PATH.parent.mkdir(parents=True, exist_ok=True)
-    output = {
-        "last_updated": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "total": len(apartments),
-        "max_price_usd": MAX_PRICE_USD,
-        "apartments": apartments,
-    }
-    with open(DATA_PATH, "w", encoding="utf-8") as f:
-        json.dump(output, f, ensure_ascii=False, indent=2)
-    log.info(f"Datos guardados en {DATA_PATH}")
-
-
 if __name__ == "__main__":
-    run()
+    asyncio.run(main())

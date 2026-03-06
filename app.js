@@ -2,103 +2,117 @@
 let allApartments = [];
 let filteredApartments = [];
 
-const GITHUB_ACTIONS_URL =
-  "https://github.com/chematos/inversiones/actions/workflows/scrape.yml";
-
 /* ─── Inicializar ────────────────────────────────────────────────────────────── */
 document.addEventListener("DOMContentLoaded", () => {
+  initDualRange("price-min", "price-max", "price-fill",
+    (v) => `U$S ${Number(v).toLocaleString()}`, "price-min-val", "price-max-val");
+  initDualRange("rent-min", "rent-max", "rent-fill",
+    (v) => `${v}%`, "rent-min-val", "rent-max-val");
+
+  document.getElementById("ggcc-max")?.addEventListener("input", () => {
+    const val = document.getElementById("ggcc-max").value;
+    document.getElementById("ggcc-max-val").textContent =
+      `$U ${Number(val).toLocaleString("es-UY")}/mes`;
+    applyFilters();
+  });
+
+  document.getElementById("sort")?.addEventListener("change", renderCards);
+  document.querySelectorAll(".filter-rooms input").forEach((cb) =>
+    cb.addEventListener("change", applyFilters));
+  document.getElementById("ggcc-unknown")?.addEventListener("change", applyFilters);
+  document.querySelectorAll(".zone-cb").forEach((cb) =>
+    cb.addEventListener("change", applyFilters));
+  document.getElementById("btn-reset")?.addEventListener("click", resetFilters);
+  document.getElementById("btn-reload")?.addEventListener("click", loadData);
+
   loadData();
-  setupEventListeners();
 });
 
+/* ─── Dual range slider ──────────────────────────────────────────────────────── */
+function initDualRange(minId, maxId, fillId, fmt, minValId, maxValId) {
+  const minEl = document.getElementById(minId);
+  const maxEl = document.getElementById(maxId);
+  const fill  = document.getElementById(fillId);
+
+  function update() {
+    const lo = +minEl.value, hi = +maxEl.value;
+    const min = +minEl.min, max = +minEl.max;
+    const pLo = (lo - min) / (max - min) * 100;
+    const pHi = (hi - min) / (max - min) * 100;
+    fill.style.left  = pLo + "%";
+    fill.style.width = (pHi - pLo) + "%";
+    document.getElementById(minValId).textContent = fmt(lo);
+    document.getElementById(maxValId).textContent = fmt(hi);
+  }
+
+  minEl.addEventListener("input", () => {
+    if (+minEl.value > +maxEl.value) minEl.value = maxEl.value;
+    update(); applyFilters();
+  });
+  maxEl.addEventListener("input", () => {
+    if (+maxEl.value < +minEl.value) maxEl.value = minEl.value;
+    update(); applyFilters();
+  });
+
+  update();
+}
+
+/* ─── Datos ──────────────────────────────────────────────────────────────────── */
 async function loadData() {
   setLoadingState();
   try {
     const res = await fetch(`./data/apartments.json?_=${Date.now()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-
     allApartments = data.apartments || [];
     updateLastUpdated(data.last_updated);
-    buildZoneFilter(allApartments);
     applyFilters();
   } catch (err) {
     showError(err.message);
   }
 }
 
-/* ─── Event listeners ────────────────────────────────────────────────────────── */
-function setupEventListeners() {
-  // Sliders
-  const sliders = ["price-max", "rent-min", "ggcc-max"];
-  sliders.forEach((id) => {
-    const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener("input", () => {
-        updateSliderDisplay(id);
-        applyFilters();
-      });
-    }
-  });
-
-  // Sort
-  document.getElementById("sort")?.addEventListener("change", renderCards);
-
-  // Room type checkboxes
-  document.querySelectorAll(".filter-rooms input").forEach((cb) => {
-    cb.addEventListener("change", applyFilters);
-  });
-
-  // Toggle "incluir sin dato de GGCC"
-  document.getElementById("ggcc-unknown")?.addEventListener("change", applyFilters);
-
-  // Reset
-  document.getElementById("btn-reset")?.addEventListener("click", resetFilters);
-
-  // Reload
-  document.getElementById("btn-reload")?.addEventListener("click", loadData);
+/* ─── Filtros ────────────────────────────────────────────────────────────────── */
+function normalizeZone(z) {
+  return (z || "").toLowerCase()
+    .replace(/á/g,"a").replace(/é/g,"e").replace(/í/g,"i")
+    .replace(/ó/g,"o").replace(/ú/g,"u").replace(/ñ/g,"n").trim();
 }
 
-/* ─── Filtros ────────────────────────────────────────────────────────────────── */
 function applyFilters() {
+  const priceMin = +document.getElementById("price-min").value;
   const priceMax = +document.getElementById("price-max").value;
-  const rentMin = +document.getElementById("rent-min").value;
-  const ggccMax = +document.getElementById("ggcc-max").value;
+  const rentMin  = +document.getElementById("rent-min").value;
+  const rentMax  = +document.getElementById("rent-max").value;
+  const ggccMax  = +document.getElementById("ggcc-max").value;
   const includeGgccUnknown = document.getElementById("ggcc-unknown").checked;
 
-  // Tipos de habitacion
   const rooms = {
     dorm1: document.getElementById("filter-1dorm").checked,
-    mono: document.getElementById("filter-mono").checked,
+    mono:  document.getElementById("filter-mono").checked,
   };
 
-  // Zonas seleccionadas
-  const zoneCheckboxes = document.querySelectorAll(".zone-cb:checked");
-  const selectedZones = new Set([...zoneCheckboxes].map((cb) => cb.value));
+  const selectedZones = new Set(
+    [...document.querySelectorAll(".zone-cb:checked")].map((cb) => cb.value)
+  );
   const allZonesUnchecked = selectedZones.size === 0;
 
   filteredApartments = allApartments.filter((apt) => {
-    // Precio
-    if (apt.price_usd > priceMax) return false;
+    if (apt.price_usd < priceMin || apt.price_usd > priceMax) return false;
+    if (apt.rentability_pct < rentMin || apt.rentability_pct > rentMax) return false;
 
-    // Rentabilidad
-    if (apt.rentability_pct < rentMin) return false;
-
-    // Gastos comunes
-    if (apt.gastos_comunes_usd !== null && apt.gastos_comunes_usd !== undefined) {
-      if (apt.gastos_comunes_usd > ggccMax) return false;
+    const ggcc = apt.gastos_comunes_uyu ?? apt.gastos_comunes_usd;
+    if (ggcc !== null && ggcc !== undefined) {
+      if (ggcc > ggccMax) return false;
     } else {
-      // Sin dato: respetar toggle
       if (!includeGgccUnknown) return false;
     }
 
-    // Tipo de habitacion
-    const isMonoambiente = isMonoApt(apt);
-    if (isMonoambiente && !rooms.mono) return false;
-    if (!isMonoambiente && !rooms.dorm1) return false;
+    const isMono = isMonoApt(apt);
+    if (isMono && !rooms.mono) return false;
+    if (!isMono && !rooms.dorm1) return false;
 
-    // Zona
-    if (!allZonesUnchecked && !selectedZones.has(apt.zone)) return false;
+    if (!allZonesUnchecked && !selectedZones.has(normalizeZone(apt.zone))) return false;
 
     return true;
   });
@@ -107,16 +121,11 @@ function applyFilters() {
 }
 
 function isMonoApt(apt) {
-  const rooms = (apt.rooms || "").toLowerCase();
-  const title = (apt.title || "").toLowerCase();
-  return (
-    rooms.includes("monoambiente") ||
-    rooms.includes("estudio") ||
-    title.includes("monoambiente") ||
-    title.includes("estudio") ||
-    rooms === "0" ||
-    rooms === "0 dormitorios"
-  );
+  const r = (apt.rooms || "").toLowerCase();
+  const t = (apt.title || "").toLowerCase();
+  return r.includes("monoambiente") || r.includes("estudio") ||
+         t.includes("monoambiente") || t.includes("estudio") ||
+         r === "0" || r === "0 dormitorios";
 }
 
 /* ─── Render ─────────────────────────────────────────────────────────────────── */
@@ -124,83 +133,65 @@ function renderCards() {
   const sortVal = document.getElementById("sort").value;
   const sorted = [...filteredApartments].sort((a, b) => {
     switch (sortVal) {
-      case "score":        return b.score - a.score;
-      case "rent":         return b.rentability_pct - a.rentability_pct;
+      case "score":       return b.score - a.score;
+      case "rent":        return b.rentability_pct - a.rentability_pct;
       case "price-asc":   return a.price_usd - b.price_usd;
       case "price-desc":  return b.price_usd - a.price_usd;
-      case "m2":           return (b.price_per_m2 === null ? 999999 : 0) - (a.price_per_m2 === null ? 999999 : 0) || a.price_per_m2 - b.price_per_m2;
-      case "days":         return (b.days_on_market || 0) - (a.days_on_market || 0);
-      default:             return b.score - a.score;
+      case "m2":          return (a.price_per_m2 ?? 999999) - (b.price_per_m2 ?? 999999);
+      case "days":        return (b.days_on_market || 0) - (a.days_on_market || 0);
+      default:            return b.score - a.score;
     }
   });
 
-  const grid = document.getElementById("cards-grid");
+  const grid  = document.getElementById("cards-grid");
   const count = document.getElementById("results-count");
-
   count.innerHTML = `<strong>${sorted.length}</strong> de ${allApartments.length} apartamentos`;
 
   if (sorted.length === 0) {
-    grid.innerHTML = `
-      <div class="state-msg">
-        <h3>Sin resultados</h3>
-        <p>Ajusta los filtros para ver mas apartamentos.</p>
-      </div>`;
+    grid.innerHTML = `<div class="state-msg"><h3>Sin resultados</h3><p>Ajusta los filtros para ver mas apartamentos.</p></div>`;
     return;
   }
-
   grid.innerHTML = sorted.map(cardHTML).join("");
 }
 
 function cardHTML(apt) {
-  const scoreClass =
-    apt.score >= 65 ? "score-high" : apt.score >= 40 ? "score-mid" : "score-low";
-
-  const rentClass =
-    apt.rentability_pct >= 8 ? "rent-excellent" :
-    apt.rentability_pct >= 6 ? "rent-good" :
-    apt.rentability_pct >= 4 ? "rent-ok" : "rent-poor";
+  const scoreClass = apt.score >= 65 ? "score-high" : apt.score >= 40 ? "score-mid" : "score-low";
+  const rentClass  = apt.rentability_pct >= 8 ? "rent-excellent" :
+                     apt.rentability_pct >= 6 ? "rent-good" :
+                     apt.rentability_pct >= 4 ? "rent-ok" : "rent-poor";
 
   const img = apt.thumbnail
-    ? `<img class="card-img" src="${escape(apt.thumbnail)}" alt="${escape(apt.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+    ? `<img class="card-img" src="${esc(apt.thumbnail)}" alt="${esc(apt.title)}" loading="lazy" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
     : "";
   const placeholder = `<div class="card-img-placeholder" ${apt.thumbnail ? 'style="display:none"' : ""}>&#127968;</div>`;
 
-  const ggccStr = apt.gastos_comunes_usd !== null && apt.gastos_comunes_usd !== undefined
-    ? `<strong>U$S ${apt.gastos_comunes_usd}/mes</strong>`
+  const ggccVal = apt.gastos_comunes_uyu ?? apt.gastos_comunes_usd;
+  const ggccStr = ggccVal !== null && ggccVal !== undefined
+    ? `<strong>${apt.gastos_comunes_uyu != null ? "$U" : "U$S"} ${ggccVal.toLocaleString("es-UY")}/mes</strong>`
     : `<span style="color:#94a3b8">Sin dato</span>`;
 
-  const daysStr = apt.days_on_market
-    ? `${apt.days_on_market}d publicado`
-    : "Fecha desconocida";
+  const rentUyu = apt.estimated_rent_uyu;
+  const rentStr = rentUyu
+    ? `$U ${rentUyu.toLocaleString("es-UY")}/mes`
+    : apt.estimated_rent_usd ? `U$S ${apt.estimated_rent_usd}/mes` : "—";
 
-  const m2Str = apt.m2 ? `${apt.m2} m²` : "m² s/d";
-  const ppm2Str = apt.price_per_m2 ? `U$S ${apt.price_per_m2.toLocaleString()}/m²` : "—";
-  const roomsStr = apt.rooms || (isMonoApt(apt) ? "Monoambiente" : "1 dorm.");
+  const daysStr  = apt.days_on_market ? `${apt.days_on_market}d publicado` : "Fecha desconocida";
+  const m2Str    = apt.m2 ? `${apt.m2} m²` : "m² s/d";
+  const ppm2Str  = apt.price_per_m2 ? `U$S ${apt.price_per_m2.toLocaleString()}/m²` : "—";
 
   return `
 <div class="apt-card">
   ${img}${placeholder}
   <div class="card-body">
     <div class="card-top">
-      <div>
-        <div class="card-price">
-          U$S ${Math.round(apt.price_usd).toLocaleString()}
-          <small>venta</small>
-        </div>
-      </div>
-      <div class="score-badge ${scoreClass}">
-        ${apt.score}
-        <span>score</span>
-      </div>
+      <div class="card-price">U$S ${Math.round(apt.price_usd).toLocaleString()} <small>venta</small></div>
+      <div class="score-badge ${scoreClass}">${apt.score}<span>score</span></div>
     </div>
-
-    <div class="card-title">${escape(apt.title)}</div>
-
+    <div class="card-title">${esc(apt.title)}</div>
     <div class="card-badges">
-      <span class="badge badge-zone">${escape(apt.zone)}</span>
+      <span class="badge badge-zone">${esc(apt.zone)}</span>
       <span class="badge badge-days">${daysStr}</span>
     </div>
-
     <div class="card-stats">
       <div class="stat">
         <div class="stat-label">Rentabilidad anual</div>
@@ -208,7 +199,7 @@ function cardHTML(apt) {
       </div>
       <div class="stat">
         <div class="stat-label">Alquiler estimado</div>
-        <div class="stat-value">U$S ${apt.estimated_rent_usd}/mes</div>
+        <div class="stat-value">${rentStr}</div>
       </div>
       <div class="stat">
         <div class="stat-label">Superficie</div>
@@ -220,104 +211,65 @@ function cardHTML(apt) {
       </div>
     </div>
   </div>
-
   <div class="card-footer">
     <div class="card-ggcc">GGCC: ${ggccStr}</div>
-    <a href="${apt.url}" target="_blank" rel="noopener" class="btn-ver">Ver anuncio →</a>
+    <a href="${esc(apt.url)}" target="_blank" rel="noopener" class="btn-ver">Ver anuncio →</a>
   </div>
 </div>`;
 }
 
-function escape(str) {
+function esc(str) {
   return String(str || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;");
-}
-
-/* ─── Filtro de zonas dinamico ──────────────────────────────────────────────── */
-function buildZoneFilter(apartments) {
-  const zones = [...new Set(apartments.map((a) => a.zone))].sort();
-  const container = document.getElementById("zone-checkboxes");
-  if (!container) return;
-
-  container.innerHTML = zones
-    .map(
-      (z) => `
-    <div class="checkbox-item">
-      <input type="checkbox" class="zone-cb" id="zone-${escape(z)}" value="${escape(z)}" checked>
-      <label for="zone-${escape(z)}">${escape(z)}</label>
-    </div>`
-    )
-    .join("");
-
-  container.querySelectorAll(".zone-cb").forEach((cb) => {
-    cb.addEventListener("change", applyFilters);
-  });
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 }
 
 /* ─── UI helpers ─────────────────────────────────────────────────────────────── */
-function updateSliderDisplay(id) {
-  const val = document.getElementById(id).value;
-  const display = document.getElementById(id + "-val");
-  if (!display) return;
-
-  if (id === "price-max") display.textContent = `U$S ${Number(val).toLocaleString()}`;
-  else if (id === "rent-min") display.textContent = `${val}%`;
-  else if (id === "ggcc-max") display.textContent = `U$S ${val}/mes`;
-}
-
 function updateLastUpdated(isoStr) {
   const el = document.getElementById("last-updated");
   if (!el) return;
-  if (!isoStr) {
-    el.textContent = "Sin datos aun — ejecuta el scraper";
-    return;
-  }
-  const d = new Date(isoStr);
-  const fmt = d.toLocaleString("es-UY", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "America/Montevideo",
+  if (!isoStr) { el.textContent = "Sin datos aun — ejecuta el scraper"; return; }
+  const fmt = new Date(isoStr).toLocaleString("es-UY", {
+    dateStyle: "medium", timeStyle: "short", timeZone: "America/Montevideo",
   });
   el.textContent = `Actualizado: ${fmt} (UY)`;
 }
 
 function setLoadingState() {
   const grid = document.getElementById("cards-grid");
-  if (!grid) return;
-  grid.innerHTML = `
-    <div class="state-msg">
-      <h3>Cargando...</h3>
-      <p>Obteniendo datos de apartamentos.</p>
-    </div>`;
+  if (grid) grid.innerHTML = `<div class="state-msg"><h3>Cargando...</h3><p>Obteniendo datos de apartamentos.</p></div>`;
 }
 
 function showError(msg) {
   const grid = document.getElementById("cards-grid");
-  if (!grid) return;
-  grid.innerHTML = `
+  if (grid) grid.innerHTML = `
     <div class="state-msg">
       <h3>Error al cargar datos</h3>
-      <p>${escape(msg)}</p>
+      <p>${esc(msg)}</p>
       <p style="margin-top:8px">Asegurate de haber ejecutado el scraper al menos una vez.</p>
     </div>`;
-  document.getElementById("last-updated").textContent = "Error al cargar";
+  const el = document.getElementById("last-updated");
+  if (el) el.textContent = "Error al cargar";
 }
 
 function resetFilters() {
-  document.getElementById("price-max").value = 88000;
-  document.getElementById("rent-min").value = 0;
-  document.getElementById("ggcc-max").value = 500;
+  document.getElementById("price-min").value = 60000;
+  document.getElementById("price-max").value = 98000;
+  document.getElementById("rent-min").value  = 0;
+  document.getElementById("rent-max").value  = 15;
+  document.getElementById("ggcc-max").value  = 30000;
   document.getElementById("ggcc-unknown").checked = true;
   document.getElementById("filter-1dorm").checked = true;
-  document.getElementById("filter-mono").checked = true;
+  document.getElementById("filter-mono").checked  = true;
   document.getElementById("sort").value = "score";
-
-  ["price-max", "rent-min", "ggcc-max"].forEach(updateSliderDisplay);
-
   document.querySelectorAll(".zone-cb").forEach((cb) => (cb.checked = true));
+
+  // Sync fills and labels
+  initDualRange("price-min", "price-max", "price-fill",
+    (v) => `U$S ${Number(v).toLocaleString()}`, "price-min-val", "price-max-val");
+  initDualRange("rent-min", "rent-max", "rent-fill",
+    (v) => `${v}%`, "rent-min-val", "rent-max-val");
+  document.getElementById("ggcc-max-val").textContent = "$U 30.000/mes";
 
   applyFilters();
 }
