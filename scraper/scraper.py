@@ -4,44 +4,75 @@ Scraper de apartamentos en Montevideo para inversion inmobiliaria.
 Fuente: MercadoLibre Uruguay (via Playwright async - renderizado JS)
 
 Uso:
-  python scraper.py          # scrape completo
-  python scraper.py --test   # 1 pagina por zona + 10 detalles
+  python scraper.py                                    # defaults: 75k-98k, buceo+malvin
+  python scraper.py --test                             # 1 pagina por zona, 10 detalles
+  python scraper.py --min 80000 --max 95000            # rango de precio personalizado
+  python scraper.py --zonas pocitos punta-carretas     # otras zonas
+  python scraper.py --min 70000 --max 90000 --zonas buceo malvin pocitos --test
 """
 
+import argparse
 import asyncio
 import json
 import re
 import random
 import logging
-import sys
 import requests
-from datetime import date, datetime
+from datetime import datetime
 from pathlib import Path
 
 from playwright.async_api import async_playwright, Page, Browser, BrowserContext
 from bs4 import BeautifulSoup
 
-# ─── Configuracion ────────────────────────────────────────────────────────────
+# ─── Constantes fijas ─────────────────────────────────────────────────────────
 
-MIN_PRICE_USD = 75_000
-MAX_PRICE_USD = 98_000
+TC_FALLBACK = 43.5  # UYU por USD si la API no responde
+CONCURRENCY = 6     # paginas de detalle en paralelo
+DATA_PATH = Path(__file__).parent.parent / "data" / "apartments.json"
 
-# Zonas permitidas (whitelist)
-ALLOWED_ZONES = {"malvin", "malvín", "buceo"}
+# Mapa de zonas conocidas: nombre normalizado → slug para la URL de MercadoLibre
+KNOWN_ZONE_SLUGS: dict[str, str] = {
+    "buceo":          "buceo",
+    "malvin":         "malvin",
+    "pocitos":        "pocitos",
+    "punta carretas": "punta-carretas",
+    "parque rodo":    "parque-rodo",
+    "cordon":         "cordon",
+    "centro":         "centro",
+    "palermo":        "palermo",
+    "prado":          "prado",
+    "union":          "union",
+    "goes":           "goes",
+    "la blanqueada":  "la-blanqueada",
+    "tres cruces":    "tres-cruces",
+    "carrasco":       "carrasco",
+    "punta gorda":    "punta-gorda",
+    "la teja":        "la-teja",
+    "paso molino":    "paso-molino",
+    "sayago":         "sayago",
+}
 
 # Alquiler mensual estimado en UYU por zona (mercado 2025-2026, 1 dorm / monoambiente)
-ZONE_RENT_UYU = {
-    "buceo":  27_000,
-    "malvin": 25_000, "malvín": 25_000,
+ZONE_RENT_UYU: dict[str, int] = {
+    "buceo":          27_000,
+    "malvin":         25_000, "malvín": 25_000,
+    "pocitos":        30_000,
+    "punta carretas": 28_000,
+    "parque rodo":    24_000,
+    "cordon":         22_000,
+    "palermo":        23_000,
+    "carrasco":       32_000,
+    "punta gorda":    29_000,
+    "centro":         20_000,
+    "union":          18_000,
+    "goes":           19_000,
+    "la blanqueada":  20_000,
+    "tres cruces":    19_000,
+    "prado":          21_000,
 }
-DEFAULT_RENT_UYU = 25_000
+DEFAULT_RENT_UYU = 22_000
 
-TC_FALLBACK = 43.5  # UYU por USD si BCU no responde
-
-CONCURRENCY = 6  # paginas de detalle en paralelo
-
-DATA_PATH = Path(__file__).parent.parent / "data" / "apartments.json"
-TEST_MODE = "--test" in sys.argv
+# ─── Logging ──────────────────────────────────────────────────────────────────
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,6 +80,56 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
+
+# ─── CLI args ─────────────────────────────────────────────────────────────────
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Scraper de apartamentos en Montevideo.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    parser.add_argument(
+        "--min", type=int, default=75_000, metavar="USD",
+        help="Precio minimo de venta en USD (default: 75000)",
+    )
+    parser.add_argument(
+        "--max", type=int, default=98_000, metavar="USD",
+        help="Precio maximo de venta en USD (default: 98000)",
+    )
+    parser.add_argument(
+        "--zonas", nargs="+", default=["buceo", "malvin"], metavar="ZONA",
+        help=(
+            "Zonas a scrapear (default: buceo malvin). "
+            "Zonas conocidas: " + ", ".join(sorted(KNOWN_ZONE_SLUGS))
+        ),
+    )
+    parser.add_argument(
+        "--test", action="store_true",
+        help="Modo test: 1 pagina por zona y solo 10 detalles",
+    )
+    return parser.parse_args()
+
+
+args = _parse_args()
+
+MIN_PRICE_USD = args.min
+MAX_PRICE_USD = args.max
+TEST_MODE     = args.test
+
+
+def _build_zone_config(zona_names: list[str]) -> tuple[dict[str, str], set[str]]:
+    """Convierte la lista de zonas del CLI en ZONE_SLUGS y ALLOWED_ZONES."""
+    zone_slugs: dict[str, str] = {}
+    allowed: set[str] = set()
+    for name in zona_names:
+        norm = name.lower().strip()
+        slug = KNOWN_ZONE_SLUGS.get(norm, norm.replace(" ", "-"))
+        zone_slugs[name.title()] = slug
+        allowed.add(norm)
+    return zone_slugs, allowed
+
+
+ZONE_SLUGS, ALLOWED_ZONES = _build_zone_config(args.zonas)
 
 # ─── Tipo de cambio BCU ───────────────────────────────────────────────────────
 
@@ -475,6 +556,7 @@ def save_results(apartments: list, tc: float = TC_FALLBACK):
         "total": len(apartments),
         "min_price_usd": MIN_PRICE_USD,
         "max_price_usd": MAX_PRICE_USD,
+        "zonas": list(ZONE_SLUGS.keys()),
         "tc_usd_uyu": tc,
         "apartments": apartments,
     }
