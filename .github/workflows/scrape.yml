@@ -33,6 +33,9 @@ jobs:
         run: playwright install chromium --with-deps
 
       - name: Ejecutar scraper
+        env:
+          ML_CLIENT_ID: ${{ secrets.ML_CLIENT_ID }}
+          ML_CLIENT_SECRET: ${{ secrets.ML_CLIENT_SECRET }}
         run: python scraper/scraper.py
 
       - name: Commit y push de datos actualizados
