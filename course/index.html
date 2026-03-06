@@ -326,6 +326,9 @@
   <div class="sidebar-label">Deploy</div>
   <a href="#ch8" class="nav-link"><span class="ch-num">8</span>GitHub Actions: automatizacion</a>
   <a href="#ch9" class="nav-link"><span class="ch-num">9</span>GitHub Pages: hosting</a>
+
+  <div class="sidebar-label">Bonus: IA</div>
+  <a href="#ch10" class="nav-link"><span class="ch-num">10</span>MCP Server con Claude</a>
 </nav>
 
 <!-- Content -->
@@ -1792,6 +1795,274 @@ sequenceDiagram
       Construiste un sistema completo de extremo a extremo: extraccion de datos con un navegador real,
       procesamiento asincrono paralelo, calculo de metricas financieras, visualizacion interactiva,
       y actualizacion automatica diaria. Todas tecnicas usadas en produccion en la industria.
+    </p>
+  </div>
+</section>
+
+
+<!-- ═══════════════════════════════════════════ CAPITULO 10 ══ -->
+<section class="chapter" id="ch10">
+  <div class="chapter-header">
+    <div class="chapter-num">10</div>
+    <div class="chapter-meta">
+      <div class="chapter-tag">Bonus: Inteligencia Artificial</div>
+      <h2>MCP Server: consultas en lenguaje natural</h2>
+    </div>
+  </div>
+
+  <p>
+    El <strong>Model Context Protocol (MCP)</strong> es un estandar abierto de Anthropic que permite
+    conectar modelos de lenguaje con herramientas y fuentes de datos externas.
+    Vamos a construir un MCP server que exponga los datos de inversiones para que
+    Claude Desktop pueda consultarlos en lenguaje natural.
+  </p>
+
+  <div class="callout info">
+    <div class="callout-icon">&#128172;</div>
+    <div class="callout-body">
+      <strong>Que ganamos con esto?</strong>
+      En vez de filtrar manualmente en el dashboard, podes preguntarle a Claude:
+      <em>"¿Hay algún apartamento en Buceo con menos de U$S 85.000 y rentabilidad mayor al 7%?"</em>
+      y Claude consultara el MCP server y te respondera en lenguaje natural.
+    </div>
+  </div>
+
+  <h3>Arquitectura con MCP</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+graph LR
+    U["Usuario"] -->|"pregunta en lenguaje natural"| CD["Claude Desktop"]
+    CD -->|"decide llamar herramienta"| MCP["mcp_server/server.py"]
+    MCP -->|"lee"| JSON["data/apartments.json"]
+    JSON -->|"datos filtrados"| MCP
+    MCP -->|"resultado JSON"| CD
+    CD -->|"respuesta en lenguaje natural"| U
+
+    style CD fill:#312e81,stroke:#6366f1,color:#e0e7ff
+    style MCP fill:#064e3b,stroke:#10b981,color:#a7f3d0
+    style JSON fill:#1e293b,stroke:#475569,color:#94a3b8
+    </div>
+  </div>
+
+  <h3>Que es MCP exactamente?</h3>
+  <p>
+    MCP define un protocolo JSON-RPC entre un <strong>host</strong> (Claude Desktop, Claude Code, etc.)
+    y un <strong>server</strong> (tu codigo). El server declara <em>tools</em>: funciones con nombre,
+    descripcion y parametros tipados. El modelo decide autonomamente cuando y como llamarlas
+    segun la conversacion.
+  </p>
+  <table>
+    <tr><th>Concepto</th><th>Analogia</th><th>En este proyecto</th></tr>
+    <tr><td>Host</td><td>El jefe que hace preguntas</td><td>Claude Desktop</td></tr>
+    <tr><td>Server</td><td>El asistente con acceso a los datos</td><td><code>mcp_server/server.py</code></td></tr>
+    <tr><td>Tool</td><td>Una habilidad del asistente</td><td><code>listar_apartamentos()</code>, <code>resumen_mercado()</code>...</td></tr>
+  </table>
+
+  <h3>Instalacion</h3>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">terminal</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-bash">pip install "mcp[cli]"</code></pre>
+  </div>
+
+  <h3>La estructura del server: FastMCP</h3>
+  <p>
+    El SDK de Python ofrece <code>FastMCP</code>, que convierte funciones Python en herramientas MCP
+    usando decoradores. El docstring de cada funcion se convierte en la descripcion que Claude
+    usa para decidir cuando llamarla.
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">mcp_server/server.py — estructura basica</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python">from mcp.server.fastmcp import FastMCP
+import json
+from pathlib import Path
+
+DATA_PATH = Path(__file__).parent.parent / "data" / "apartments.json"
+
+# Nombre que aparece en Claude Desktop
+mcp = FastMCP("Inversiones MVD")
+
+def load_data() -> dict:
+    with open(DATA_PATH, encoding="utf-8") as f:
+        return json.load(f)
+
+# El decorador @mcp.tool() registra la funcion como herramienta
+# El docstring es CRITICO: Claude lo usa para decidir cuando llamar esta tool
+@mcp.tool()
+def listar_apartamentos(
+    zona: str | None = None,
+    precio_max_usd: int | None = None,
+    score_minimo: int | None = None,
+    rentabilidad_minima: float | None = None,
+    ordenar_por: str = "score",
+    limite: int = 15,
+) -> str:
+    """
+    Lista apartamentos con filtros opcionales.
+    zona: filtrar por zona (ej: "buceo", "malvin").
+    precio_max_usd: precio maximo en USD.
+    score_minimo: puntaje minimo de inversion (0-100).
+    rentabilidad_minima: rentabilidad bruta anual minima en %.
+    ordenar_por: "score" | "rentabilidad" | "precio_asc" | "precio_desc".
+    """
+    data = load_data()
+    apts = data["apartments"]
+
+    if zona:
+        apts = [a for a in apts if zona.lower() in a.get("zone", "").lower()]
+    if precio_max_usd:
+        apts = [a for a in apts if (a.get("price_usd") or 0) <= precio_max_usd]
+    if score_minimo:
+        apts = [a for a in apts if (a.get("score") or 0) >= score_minimo]
+    if rentabilidad_minima:
+        apts = [a for a in apts if (a.get("rentability_pct") or 0) >= rentabilidad_minima]
+
+    apts = sorted(apts, key=lambda x: -(x.get("score") or 0))[:limite]
+    return json.dumps({"total": len(apts), "apartamentos": apts}, ensure_ascii=False, indent=2)
+
+
+if __name__ == "__main__":
+    mcp.run()</code></pre>
+  </div>
+
+  <h3>Las 4 herramientas del server</h3>
+  <div class="arch-grid">
+    <div class="arch-card">
+      <div class="arch-icon">&#128269;</div>
+      <div class="arch-title">listar_apartamentos</div>
+      <div class="arch-desc">Filtra por zona, precio, score, rentabilidad, gastos comunes. Ordena y limita resultados.</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#127968;</div>
+      <div class="arch-title">obtener_apartamento</div>
+      <div class="arch-desc">Devuelve todos los datos de un apartamento por ID, URL o fragmento del titulo.</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#128202;</div>
+      <div class="arch-title">resumen_mercado</div>
+      <div class="arch-desc">Estadisticas generales: promedios, minimos, maximos, distribucion por zona, top 3.</div>
+    </div>
+    <div class="arch-card">
+      <div class="arch-icon">&#9878;</div>
+      <div class="arch-title">comparar_apartamentos</div>
+      <div class="arch-desc">Pone varios apartamentos lado a lado para facilitar la comparacion directa.</div>
+    </div>
+  </div>
+
+  <h3>Configurar Claude Desktop</h3>
+  <p>
+    Claude Desktop lee un archivo de configuracion JSON donde declaras que MCP servers conectar.
+    En macOS:
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">~/Library/Application Support/Claude/claude_desktop_config.json</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-json">{
+  "mcpServers": {
+    "inversiones": {
+      "command": "python",
+      "args": ["/ruta/absoluta/a/inversiones/mcp_server/server.py"]
+    }
+  }
+}</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-icon">&#128161;</div>
+    <div class="callout-body">
+      <strong>Obtener la ruta absoluta</strong>
+      En la terminal, dentro del proyecto: <code>pwd</code> te da la ruta base.
+      La ruta completa seria algo como <code>/Users/tu_usuario/Proyectos/inversiones/mcp_server/server.py</code>.
+    </div>
+  </div>
+
+  <p>Reinicia Claude Desktop. En el chat deberia aparecer un icono de herramientas indicando que el MCP esta conectado.</p>
+
+  <h3>Probarlo en Claude Desktop</h3>
+  <p>Una vez conectado, podes hacer preguntas como:</p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">ejemplos de consultas en lenguaje natural</span>
+    </div>
+    <pre><code class="language-text">¿Cuántos apartamentos hay disponibles y cuál es la rentabilidad promedio?
+
+Muéstrame los 5 mejores apartamentos en Buceo con precio menor a U$S 88.000
+
+¿Hay algún apartamento con score mayor a 70 y gastos comunes menores a $U 8.000?
+
+Compara los apartamentos MLU-123456 y MLU-789012
+
+¿Cuál es el mejor precio por m² disponible actualmente?</code></pre>
+  </div>
+
+  <h3>Como funciona internamente la llamada</h3>
+  <div class="diagram-wrap">
+    <div class="mermaid">
+sequenceDiagram
+    participant U as Usuario
+    participant CD as Claude Desktop
+    participant MCP as mcp_server/server.py
+
+    U->>CD: "¿Mejor apartamento en Buceo?"
+    Note over CD: Claude analiza el mensaje y decide<br/>llamar listar_apartamentos()
+    CD->>MCP: listar_apartamentos(zona="buceo", ordenar_por="score", limite=5)
+    MCP->>MCP: Lee apartments.json, filtra, ordena
+    MCP-->>CD: JSON con resultados
+    Note over CD: Claude interpreta el JSON<br/>y genera respuesta natural
+    CD-->>U: "El mejor apartamento en Buceo es..."
+    </div>
+  </div>
+
+  <h3>Por que el docstring importa tanto</h3>
+  <p>
+    Claude no puede "ver" tu codigo. Solo ve el nombre de la funcion, los tipos de los parametros,
+    y el docstring. Un docstring pobre lleva a que Claude llame la herramienta con parametros incorrectos
+    o que no la llame cuando deberia.
+  </p>
+  <div class="code-block">
+    <div class="code-block-header">
+      <span class="code-block-filename">docstring malo vs bueno</span>
+      <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+    </div>
+    <pre><code class="language-python"># MAL: Claude no sabe cuando usarla ni que espera cada parametro
+@mcp.tool()
+def listar_apartamentos(zona=None, precio=None) -> str:
+    """Lista apartamentos."""
+    ...
+
+# BIEN: Claude entiende exactamente que hace y cuando llamarla
+@mcp.tool()
+def listar_apartamentos(
+    zona: str | None = None,
+    precio_max_usd: int | None = None,
+) -> str:
+    """
+    Lista apartamentos con filtros opcionales.
+    Usar cuando el usuario pregunta por apartamentos disponibles,
+    quiere filtrar por zona o precio, o pide recomendaciones.
+
+    zona: nombre de la zona a filtrar (ej: "buceo", "malvin").
+          Busqueda parcial, ignora acentos.
+    precio_max_usd: precio maximo de venta en dolares americanos.
+    """
+    ...</code></pre>
+  </div>
+
+  <div class="highlight-box">
+    <h4>Que sigue despues de este capitulo?</h4>
+    <p style="color: var(--muted);">
+      Con este MCP server tenes la base para agregar mas herramientas:
+      disparar el scraper desde Claude (<code>ejecutar_scraper()</code>),
+      actualizar las estimaciones de alquiler (<code>actualizar_zona(zona, nuevo_valor)</code>),
+      o exponer datos historicos si los empezas a guardar.
+      El patron es siempre el mismo: funcion Python + decorador <code>@mcp.tool()</code> + docstring claro.
     </p>
   </div>
 </section>
