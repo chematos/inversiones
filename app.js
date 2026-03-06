@@ -66,10 +66,41 @@ async function loadData() {
     const data = await res.json();
     allApartments = data.apartments || [];
     updateLastUpdated(data.last_updated);
+    applyDataConfig(data);
     applyFilters();
   } catch (err) {
     showError(err.message);
   }
+}
+
+function applyDataConfig(data) {
+  // Actualizar rango del slider de precio segun los parametros del scraper
+  const minP = data.min_price_usd ?? 75000;
+  const maxP = data.max_price_usd ?? 98000;
+  ["price-min", "price-max"].forEach((id) => {
+    const el = document.getElementById(id);
+    el.min = minP;
+    el.max = maxP;
+    el.step = 1000;
+  });
+  document.getElementById("price-min").value = minP;
+  document.getElementById("price-max").value = maxP;
+  initDualRange("price-min", "price-max", "price-fill",
+    (v) => `U$S ${Number(v).toLocaleString()}`, "price-min-val", "price-max-val");
+
+  // Generar checkboxes de zonas segun el JSON
+  const zonas = data.zonas || [];
+  const container = document.getElementById("zone-checkboxes");
+  container.innerHTML = zonas.map((zona) => {
+    const val = normalizeZone(zona);
+    const id  = `zone-${val}`;
+    return `<div class="checkbox-item">
+      <input type="checkbox" class="zone-cb" id="${id}" value="${val}" checked />
+      <label for="${id}">${esc(zona)}</label>
+    </div>`;
+  }).join("");
+  container.querySelectorAll(".zone-cb").forEach((cb) =>
+    cb.addEventListener("change", applyFilters));
 }
 
 /* ─── Filtros ────────────────────────────────────────────────────────────────── */
@@ -253,8 +284,10 @@ function showError(msg) {
 }
 
 function resetFilters() {
-  document.getElementById("price-min").value = 75000;
-  document.getElementById("price-max").value = 98000;
+  const priceMin = document.getElementById("price-min");
+  const priceMax = document.getElementById("price-max");
+  priceMin.value = priceMin.min;
+  priceMax.value = priceMax.max;
   document.getElementById("rent-min").value  = 0;
   document.getElementById("rent-max").value  = 15;
   document.getElementById("ggcc-max").value  = 30000;

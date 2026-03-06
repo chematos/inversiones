@@ -90,19 +90,10 @@
       </div>
     </div>
 
-    <!-- Zonas -->
+    <!-- Zonas (generado dinamicamente por app.js segun el JSON) -->
     <div class="filter-section">
       <span class="filter-label">Zonas</span>
-      <div class="checkbox-group">
-        <div class="checkbox-item">
-          <input type="checkbox" class="zone-cb" id="zone-buceo" value="buceo" checked />
-          <label for="zone-buceo">Buceo</label>
-        </div>
-        <div class="checkbox-item">
-          <input type="checkbox" class="zone-cb" id="zone-malvin" value="malvin" checked />
-          <label for="zone-malvin">Malvín</label>
-        </div>
-      </div>
+      <div class="checkbox-group" id="zone-checkboxes"></div>
     </div>
 
     <button id="btn-reset" class="btn-reset">Restablecer filtros</button>
