@@ -23,18 +23,16 @@ from bs4 import BeautifulSoup
 
 # ─── Configuracion ────────────────────────────────────────────────────────────
 
-MIN_PRICE_USD = 60_000
+MIN_PRICE_USD = 75_000
 MAX_PRICE_USD = 98_000
 
 # Zonas permitidas (whitelist)
-ALLOWED_ZONES = {"malvin", "malvín", "cordon", "cordón", "carrasco", "buceo"}
+ALLOWED_ZONES = {"malvin", "malvín", "buceo"}
 
 # Alquiler mensual estimado en UYU por zona (mercado 2025-2026, 1 dorm / monoambiente)
 ZONE_RENT_UYU = {
-    "carrasco": 40_000,
-    "buceo":    27_000,
-    "malvin":   25_000, "malvín": 25_000,
-    "cordon":   22_000, "cordón": 22_000,
+    "buceo":  27_000,
+    "malvin": 25_000, "malvín": 25_000,
 }
 DEFAULT_RENT_UYU = 25_000
 
@@ -148,10 +146,8 @@ async def safe_goto(page: Page, url: str, retries: int = 2) -> bool:
 ML_BASE = "https://listado.mercadolibre.com.uy/inmuebles/apartamentos/venta/propiedades-individuales/montevideo"
 
 ZONE_SLUGS = {
-    "Buceo":    "buceo",
-    "Malvín":   "malvin",
-    "Cordón":   "cordon",
-    "Carrasco": "carrasco",
+    "Buceo":  "buceo",
+    "Malvín": "malvin",
 }
 
 
